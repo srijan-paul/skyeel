@@ -5,10 +5,7 @@ const enum Modifier {
 	alt = 0b0010,
 }
 
-function isAlphaNumeric(char: string) {
-	if (char.length > 2) return false;
-	const code = char.codePointAt(0);
-}
+type Pair<T> = [T, T];
 
 class Input {
 	static getModifierMaskFromEvent(event: KeyboardEvent): Modifier {
@@ -87,18 +84,35 @@ class Doc {
 	private restoreCaret(node: Node, originalRange: Range, offset: number) {
 		originalRange.setStart(node, offset + 1);
 		originalRange.setEnd(node, offset + 1);
-		originalRange.collapse();
-		console.log(originalRange);
 		const selection = window.getSelection();
 		if (!selection) return;
 		selection.removeAllRanges();
 		selection.addRange(originalRange);
 	}
 
-	private addMarkToRange(selection: Selection, range: Range) {
-		const node = selection.anchorNode;	
-		if (!node) return;
-		throw new Error("Not implemented");
+	private spanRangeBetweenNodes(beginNode: Node, endNode: Node): Pair<number> {
+		const beginSpan = this.findEnclosingSpan(beginNode);
+		const endSpan = this.findEnclosingSpan(endNode);
+		const spanRange: Pair<number> = [this.spans.indexOf(beginSpan), this.spans.indexOf(endSpan)];
+		if (spanRange[0] > spanRange[1]) {
+			throw new Error("Impossible");
+		}
+		return spanRange;
+	}
+
+	// Add [Mark] to all spans in [range].
+	addMarkToRange(selection: Selection, range: Range, mark: Mark) {
+		const startNode = selection.anchorNode!;
+		const endNode = selection.focusNode!;
+		const startOffset = selection.anchorOffset;
+		const endOffset = selection.focusOffset;
+		console.log(startOffset, endOffset);
+		const [beginSpan, endSpan] = this.spanRangeBetweenNodes(startNode, endNode);
+		if (beginSpan != endSpan) {
+			throw new Error("Not implemented");
+		}
+
+		console.log(this.spans[beginSpan].split(startOffset, endOffset).map(x => x.text));
 	}
 }
 
@@ -141,6 +155,32 @@ class Span {
 	toDOMNode() {
 		return new Text(this.text);
 	}
+
+	makeChild(from: number, to: number) {
+		return new Span(this.doc, this.text.substring(from ,to));
+	}
+
+	split(begin: number, end: number): Span[] {
+		if (begin === 0) {
+			return [
+				this.makeChild(begin, end),
+				this.makeChild(end, this.text.length)
+			];
+		}
+
+		if (end === this.text.length) {
+			return [
+				this.makeChild(0, begin),
+				this.makeChild(begin, end)
+			]
+		}
+
+		return [
+			this.makeChild(0, begin),
+			this.makeChild(begin, end),
+			this.makeChild(end, this.text.length)
+		]
+	}
 }
 
 class Editor {
@@ -155,8 +195,6 @@ class Editor {
 		this.document = new Doc(this, this.div);
 		const span = new Span(this.document, text.nodeValue ?? "");
 		this.document.spans.push(span);
-
-		Input.addHotkeyTo(this.div, "b", Modifier.cmd, this.bold.bind(this));
 
 		// After about ~2-3 days of struggling to find the right way to handle input while
 		// keeping the View and State in sync, I've finally found the perfect event to listen to,
@@ -192,7 +230,7 @@ class Editor {
 	private bold() {
 		const [selection, range] = this.getSelectionAndRange();
 		if (!(selection && range)) return;
-		
+		this.document.addMarkToRange(selection, range, { type: "bold" });
 	}
 
 	// When new text is inserted into (or removed from) the editor,
