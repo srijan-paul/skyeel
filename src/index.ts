@@ -42,10 +42,63 @@ class Input {
 class Doc {
 	spans: Span[] = [];
 
-	constructor(private readonly editor: Editor) {}
+	private readonly spanOfDOMNode = new Map<Node, Span>();
 
-	findEnclosingSpan(node: Node) {
-		// TODO
+	// TODO: in the future, the Doc should be capable of constructing
+	// itself givne an editor.
+	constructor(private readonly editor: Editor, private readonly rootElement: HTMLDivElement) {
+		if (rootElement.childNodes.length === 0) {
+			const textNode = new Text("");
+			this.rootElement.appendChild(textNode);
+		}
+		const textNode = this.rootElement.childNodes[0];
+		if (!(textNode instanceof Text && typeof textNode.textContent === "string"))
+			throw new Error("Editor must be a div with only text inside it.");
+		const firstSpan = new Span(this, textNode.textContent);
+		this.spans.push(firstSpan);
+		this.spanOfDOMNode.set(textNode, firstSpan);
+	}
+
+	// find the nearest span that contains [node]
+	// inside itself.
+	private findEnclosingSpan(node: Node): Span {
+		let currentNode: Node | null = node;
+		while (currentNode) {
+			const span = this.spanOfDOMNode.get(currentNode);
+			if (span) return span;
+			currentNode = currentNode.parentNode;
+		}
+		throw new Error("Could not find enclosing span for DOM node");
+	}
+
+	// Insert `text` in `node` at the current caret/selection position.
+	insertTextInNode(node: Node, _selection: Selection, range: Range, text: string) {
+		const span = this.findEnclosingSpan(node);
+		// TODO: handle the case where startOffset =/= endOffset
+		const { startOffset } = range;
+		span.insertTextAt(startOffset, text);
+		node.textContent = span.text;
+		this.restoreCaret(node, range, startOffset);
+	}
+
+	// After a DOM node's `textContent` property is updated, the caret
+	// will jump back to the beginning of the surrounding `contenteditable` div.
+	// We need to bring it back to the position where the edit happened.
+	private restoreCaret(node: Node, originalRange: Range, offset: number) {
+		originalRange.setStart(node, offset + 1);
+		originalRange.setEnd(node, offset + 1);
+		originalRange.collapse();
+		console.log(originalRange);
+		const selection = window.getSelection();
+		if (!selection) return;
+		selection.removeAllRanges();
+		selection.addRange(originalRange);
+	}
+
+	private addMarkToRange(selection: Selection, range: Range) {
+		const node = selection.anchorNode;	
+		if (!node) return;
+		throw new Error("Not implemented");
 	}
 }
 
@@ -91,11 +144,6 @@ class Span {
 }
 
 class Editor {
-	private readonly mutationObserver = new MutationObserver(this.onMutate.bind(this));
-
-	// Maps a DOM Node to its corresponding span in the Document state.
-	private readonly spanOfDomNode = new Map<Node, Span>();
-
 	// The headless state of this document.
 	private readonly document: Doc;
 
@@ -103,16 +151,10 @@ class Editor {
 		// The HTML div on which to mount the editor.
 		private readonly div: HTMLDivElement
 	) {
-		this.mutationObserver.observe(this.div, {
-			characterData: true,
-			subtree: true,
-		});
-
 		const text = this.div.childNodes[0];
-		this.document = new Doc(this);
+		this.document = new Doc(this, this.div);
 		const span = new Span(this.document, text.nodeValue ?? "");
 		this.document.spans.push(span);
-		this.spanOfDomNode.set(text, span);
 
 		Input.addHotkeyTo(this.div, "b", Modifier.cmd, this.bold.bind(this));
 
@@ -136,62 +178,45 @@ class Editor {
 		//   update our state, and then artificially mutate the DOM again using our updated state. This way, the model and the view
 		//   will be consistent.
 		this.div.addEventListener("beforeinput", this.handleInput.bind(this));
+
+		Input.addHotkeyTo(this.div, "b", Modifier.cmd, this.bold.bind(this));
+	}
+
+	private getSelectionAndRange(): [Selection, Range] {
+		const selection = window.getSelection();
+		if (!selection) throw new Error("Impossible");
+		const range = selection.getRangeAt(0);
+		return [selection, range];
+	}
+
+	private bold() {
+		const [selection, range] = this.getSelectionAndRange();
+		if (!(selection && range)) return;
+		
 	}
 
 	// When new text is inserted into (or removed from) the editor,
 	// the state has to be updated so that its in sync with the DOM.
 	private handleInput(event: Event) {
-		if (!(event instanceof InputEvent && typeof event.data === "string")) return;
+		if (!(event instanceof InputEvent)) return;
 		const { data } = event;
-		if (event.inputType === "insertText") {
+		// TODO: handle each of these cases: https://rawgit.com/w3c/input-events/v1/index.html#interface-InputEvent-Attributes (OOF!)
+		if (event.inputType === "insertText" && typeof data === "string") {
 			this.insertTextAtSelection(data);
+			event.preventDefault();
+		} else {
+			console.log(event.inputType, "is not supported yet.");
 			event.preventDefault();
 		}
 	}
 
 	private insertTextAtSelection(text: string) {
 		const selection = window.getSelection();
-		if (!selection) return;
-
-		// TODO: handle multiple ranges? (firefox allows users to have multiple selections)
+		if (!selection) throw new Error("Impossible");
 		const range = selection.getRangeAt(0);
-
-		if (range.startOffset === range.endOffset) {
-			const cursorPos = range.startOffset;
-			const target = range.startContainer;
-			const span = this.findEnclosingSpan(target);
-			span.insertTextAt(cursorPos, text);
-			console.log(span.text);
-		} else {
-			console.log("wtrf");
-		}
-	}
-
-	/**
-	 * @param node A DOM Node inside the editor.
-	 * @returns The nearest enclosing `Span` surrounding that DOM node.
-	 */
-	private findEnclosingSpan(node: Node) {
-		let currentNode: Node | null = node;
-		while (currentNode instanceof Node) {
-			const span = this.spanOfDomNode.get(node);
-			if (span) return span;
-			currentNode = currentNode.parentNode;
-		}
-		throw new Error("Could not find an enclosing span for node: " + node);
-	}
-
-	private onMutate(mutations: MutationRecord[]) {
-		for (const mutation of mutations) {
-			// do I really need a mutation observer now?
-		}
-	}
-
-	private bold() {
-		const range = window.getSelection()?.getRangeAt(0);
-		console.log(range);
-		// nothing was selected. Nothing to bold.
-		if (!range) return;
+		const node = selection.anchorNode;
+		if (!node) throw new Error("No anchor node for selection");
+		this.document.insertTextInNode(node, selection, range, text);
 	}
 }
 
