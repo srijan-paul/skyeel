@@ -1,3 +1,5 @@
+import { identity } from "lodash";
+
 const enum Modifier {
 	none = 0b0000,
 	cmd = 0b1000,
@@ -5,7 +7,7 @@ const enum Modifier {
 	alt = 0b0010,
 }
 
-type Pair<T> = [T, T];
+type Pair<T1, T2 = T1> = [T1, T2];
 
 class Input {
 	static getModifierMaskFromEvent(event: KeyboardEvent): Modifier {
@@ -69,21 +71,25 @@ class Doc {
 	}
 
 	// Insert `text` in `node` at the current caret/selection position.
-	insertTextInNode(node: Node, _selection: Selection, range: Range, text: string) {
-		const span = this.findEnclosingSpan(node);
-		// TODO: handle the case where startOffset =/= endOffset
-		const { startOffset } = range;
-		span.insertTextAt(startOffset, text);
-		node.textContent = span.text;
-		this.restoreCaret(node, range, startOffset);
+	insertTextInNode(selection: Selection, text: string) {
+		// TODO: handle right to left selections (?)
+		const anchorNode = selection.anchorNode!;
+		const { anchorOffset, focusOffset } = selection;
+
+		const range = selection.getRangeAt(0);
+		// TODO: handle the case where the selection spans multiple nodes.
+		const span = this.findEnclosingSpan(anchorNode);
+		span.insertTextAt(text, anchorOffset, focusOffset);
+		anchorNode.textContent = span.text;
+		this.restoreCaret(anchorNode, range, anchorOffset + 1);
 	}
 
 	// After a DOM node's `textContent` property is updated, the caret
 	// will jump back to the beginning of the surrounding `contenteditable` div.
 	// We need to bring it back to the position where the edit happened.
 	private restoreCaret(node: Node, originalRange: Range, offset: number) {
-		originalRange.setStart(node, offset + 1);
-		originalRange.setEnd(node, offset + 1);
+		originalRange.setStart(node, offset);
+		originalRange.setEnd(node, offset);
 		const selection = window.getSelection();
 		if (!selection) return;
 		selection.removeAllRanges();
@@ -102,28 +108,75 @@ class Doc {
 
 	// Add [Mark] to all spans in [range].
 	addMarkToRange(selection: Selection, range: Range, mark: Mark) {
+		// TODO: handle right to left selections.
 		const startNode = selection.anchorNode!;
 		const endNode = selection.focusNode!;
-		const startOffset = selection.anchorOffset;
-		const endOffset = selection.focusOffset;
-		console.log(startOffset, endOffset);
-		const [beginSpan, endSpan] = this.spanRangeBetweenNodes(startNode, endNode);
-		if (beginSpan != endSpan) {
-			throw new Error("Not implemented");
-		}
+		const from = selection.anchorOffset;
+		const to = selection.focusOffset;
 
-		console.log(this.spans[beginSpan].split(startOffset, endOffset).map(x => x.text));
+		// find the spans that overlap with the DOM nodes selected by the user.
+		const [beginSpanIdx, endSpanIdx] = this.spanRangeBetweenNodes(startNode, endNode);
+
+		if (beginSpanIdx === endSpanIdx) {
+			// The entire selection is within a single span.
+			const span = this.spans[beginSpanIdx];
+			// the old spans should be replaced by these new spans
+			const newSpans = Span.addMarkToRange(span, from, to, mark);
+			const newDomFragment = this.replaceSpansWith(beginSpanIdx, endSpanIdx, newSpans);
+			const firstChild = newDomFragment.children[0];
+			startNode.parentNode?.replaceChild(newDomFragment, startNode);
+
+			// TODO: select the whole new set of spans (correctly), instead of resetting back
+			// to the beginning.
+			this.restoreCaret(firstChild, range, 0);
+			return;
+		}
+	}
+
+	// replace the spans in range [from, to], with [spans].
+	replaceSpansWith(from: number, to: number, spans: Span[]): DocumentFragment {
+		const before = this.spans.slice(0, from);
+		const after = this.spans.slice(to);
+
+		// TODO: free the old spans from the Map,
+		// currently they're not being garbage collected even though they're not needed.
+		this.spans = before.concat(spans, after);
+
+		// sync the dom Nodes as well.
+		const fragment = document.createDocumentFragment();
+		for (const span of spans) {
+			const newDomNode = span.toDOMNode();
+			fragment.append(newDomNode);
+			this.spanOfDOMNode.set(newDomNode, span);
+		}
+		return fragment;
 	}
 }
 
 // A "Mark" represents some kind of formatting like: bold, italic, underline, etc.
-interface Mark {
-	// "bold", "italic", "color", "underline", etc.
-	type: string;
-	// Any attributes like { color: "#ff0000" }.
-	// It's `undefined` for simple marks like "bold".
-	attrs?: Record<string, any>;
+class Mark {
+	constructor(
+		// "bold", "italic", "color", "underline", etc.
+		readonly type: string,
+		// "Render" the mark by mutating a DOM Node to appear different.
+		readonly render: (node: Node) => Node = identity,
+		// Any attributes like { color: "#ff0000" }.
+		// It's `undefined` for simple marks like "bold".
+		readonly attrs?: Record<string, any>
+	) {}
 }
+
+const BoldMark = new Mark("bold", (node) => {
+	const newNode = document.createElement("strong");
+	newNode.appendChild(node);
+	return newNode;
+});
+
+const ItalicMark = new Mark("italic", (node) => {
+	const newNode = document.createElement("em");
+	newNode.appendChild(node);
+	return newNode;
+});
 
 /**
  * A `Span` represents a contiguous array of text in the document.
@@ -131,7 +184,11 @@ interface Mark {
 class Span {
 	// A set of marks, where each mark specifies what kind of formatting needs
 	// to be applied to this span. E.g: [bold, italic]
-	readonly markSet: Mark[] = [];
+	readonly markSet = new Set<Mark>();
+
+	static addMarkToRange(span: Span, from: number, to: number, mark: Mark) {
+		return span.slice(from, to, mark);
+	}
 
 	constructor(
 		// Pointer to the document that contains this span.
@@ -140,9 +197,9 @@ class Span {
 		public text: string
 	) {}
 
-	insertTextAt(offset: number, textToAdd: string): string {
-		const after = this.text.slice(offset);
-		const before = this.text.substring(0, offset);
+	insertTextAt(textToAdd: string, from: number, to = from): string {
+		const before = this.text.substring(0, from);
+		const after = this.text.slice(to);
 		this.text = before + textToAdd + after;
 		return this.text;
 	}
@@ -153,33 +210,47 @@ class Span {
 	}
 
 	toDOMNode() {
-		return new Text(this.text);
+		let node: Node = new Text(this.text);
+		for (const mark of this.markSet) {
+			node = mark.render(node);
+		}
+		return node;
+	}
+
+	addMark(mark: Mark) {
+		this.markSet.add(mark);
+		return this;
 	}
 
 	makeChild(from: number, to: number) {
-		return new Span(this.doc, this.text.substring(from ,to));
+		return new Span(this.doc, this.text.substring(from, to));
 	}
 
-	split(begin: number, end: number): Span[] {
-		if (begin === 0) {
-			return [
-				this.makeChild(begin, end),
-				this.makeChild(end, this.text.length)
-			];
+	slice(from: number, to: number, markToAdd?: Mark): Span[] {
+		if (from === 0 && to === this.text.length) {
+			if (markToAdd) this.addMark(markToAdd);
+			return [this];
 		}
 
-		if (end === this.text.length) {
-			return [
-				this.makeChild(0, begin),
-				this.makeChild(begin, end)
-			]
+		if (from === 0) {
+			const children = [this.makeChild(from, to), this.makeChild(to, this.text.length)];
+			if (markToAdd) children[0].addMark(markToAdd);
+			return children;
 		}
 
-		return [
-			this.makeChild(0, begin),
-			this.makeChild(begin, end),
-			this.makeChild(end, this.text.length)
-		]
+		if (to === this.text.length) {
+			const children = [this.makeChild(0, from), this.makeChild(from, to)];
+			if (markToAdd) children[1].addMark(markToAdd);
+			return children;
+		}
+
+		const children = [
+			this.makeChild(0, from),
+			this.makeChild(from, to),
+			this.makeChild(to, this.text.length),
+		];
+		if (markToAdd) children[1].addMark(markToAdd);
+		return children;
 	}
 }
 
@@ -218,6 +289,7 @@ class Editor {
 		this.div.addEventListener("beforeinput", this.handleInput.bind(this));
 
 		Input.addHotkeyTo(this.div, "b", Modifier.cmd, this.bold.bind(this));
+		Input.addHotkeyTo(this.div, "i", Modifier.cmd, this.italic.bind(this));
 	}
 
 	private getSelectionAndRange(): [Selection, Range] {
@@ -230,7 +302,13 @@ class Editor {
 	private bold() {
 		const [selection, range] = this.getSelectionAndRange();
 		if (!(selection && range)) return;
-		this.document.addMarkToRange(selection, range, { type: "bold" });
+		this.document.addMarkToRange(selection, range, BoldMark);
+	}
+
+	private italic() {
+		const [selection, range] = this.getSelectionAndRange();
+		if (!(selection && range)) return;
+		this.document.addMarkToRange(selection, range, ItalicMark);
 	}
 
 	// When new text is inserted into (or removed from) the editor,
@@ -251,10 +329,7 @@ class Editor {
 	private insertTextAtSelection(text: string) {
 		const selection = window.getSelection();
 		if (!selection) throw new Error("Impossible");
-		const range = selection.getRangeAt(0);
-		const node = selection.anchorNode;
-		if (!node) throw new Error("No anchor node for selection");
-		this.document.insertTextInNode(node, selection, range, text);
+		this.document.insertTextInNode(selection, text);
 	}
 }
 
