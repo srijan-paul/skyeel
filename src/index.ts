@@ -40,9 +40,9 @@ class Input {
 // A `document` represents the state of the editor
 // in memory. It is a linear list of spans.
 class Doc {
-	spans: Span[] = [];
+	private spans: Span[] = [];
 
-	private readonly spanOfDOMNode = new BiMap<Node, Span>();
+	private readonly spanDomNodeBiMap = new BiMap<Node, Span>();
 
 	// TODO: in the future, the Doc should be capable of constructing
 	// itself givne an editor.
@@ -56,7 +56,7 @@ class Doc {
 			throw new Error("Editor must be a div with only text inside it.");
 		const firstSpan = new Span(this, textNode.textContent);
 		this.spans.push(firstSpan);
-		this.spanOfDOMNode.set(textNode, firstSpan);
+		this.spanDomNodeBiMap.set(textNode, firstSpan);
 	}
 
 	// find the nearest span that contains [node]
@@ -64,7 +64,7 @@ class Doc {
 	private findEnclosingSpan(node: Node): Span {
 		let currentNode: Node | null = node;
 		while (currentNode) {
-			const span = this.spanOfDOMNode.get(currentNode);
+			const span = this.spanDomNodeBiMap.get(currentNode);
 			if (span) return span;
 			currentNode = currentNode.parentNode;
 		}
@@ -97,6 +97,7 @@ class Doc {
 		selection.addRange(originalRange);
 	}
 
+	// Given two DOM Nodes, find all spans that lie between the two.
 	private spanRangeBetweenNodes(beginNode: Node, endNode: Node): Pair<number> {
 		const beginSpan = this.findEnclosingSpan(beginNode);
 		const endSpan = this.findEnclosingSpan(endNode);
@@ -116,34 +117,62 @@ class Doc {
 		const to = selection.focusOffset;
 
 		// find the spans that overlap with the DOM nodes selected by the user.
-		const [beginSpanIdx, endSpanIdx] = this.spanRangeBetweenNodes(startNode, endNode);
+		let [beginSpanIdx, endSpanIdx] = this.spanRangeBetweenNodes(startNode, endNode);
 
 		if (beginSpanIdx === endSpanIdx) {
 			// The entire selection is within a single span.
 			const span = this.spans[beginSpanIdx];
 			// the old spans should be replaced by these new spans
 			const newSpans = Span.addMarkToRange(span, from, to, mark);
-			const newDomFragment = this.replaceSpansWith(beginSpanIdx, endSpanIdx, newSpans);
+			const newDomFragment = this.replaceSpansWith(beginSpanIdx, beginSpanIdx + 1, newSpans);
 			const firstChild = newDomFragment.children[0];
 			startNode.parentNode?.replaceChild(newDomFragment, startNode);
 
-			// TODO: select the whole new set of spans (correctly), instead of resetting back
-			// to the beginning.
+			// TODO: The newly added span should stay selected. Currently,
+			// we're resetting back to zero.
 			this.restoreCaret(firstChild, range, 0);
+			return;
 		}
 
-		for (let i = beginSpanIdx; i <= endSpanIdx; ++i) {
+		const firstSpan = this.spans[beginSpanIdx];
+		const newFirstSpans = Span.addMarkToRange(firstSpan, from, firstSpan.text.length, mark);
+		const firstDOMFragment = this.getDOMFragmentFromSpans(newFirstSpans);
+
+		this.addMarkToSpansBetween(beginSpanIdx + 1, endSpanIdx, mark);
+
+		const lastSpan = this.spans[endSpanIdx];
+		const newLastSpans = Span.addMarkToRange(lastSpan, 0, to, mark);
+		const lastDOMFragment = this.getDOMFragmentFromSpans(newLastSpans);
+		
+
+		// TODO: assert that the node mapped to `firstSpan` is indeed `selection.anchorNode`.
+
+		startNode.parentNode?.replaceChild(firstDOMFragment, startNode);
+		endNode.parentNode?.replaceChild(lastDOMFragment, endNode);
+	}
+
+	private addMarkToSpansBetween(from: number, to: number, mark: Mark) {
+		for (let i = from; i < to; ++i) {
 			const span = this.spans[i];
-			if (i === beginSpanIdx) {
-				// todo
-			} else if (i === endSpanIdx) {
-				// todo
-			} else {
-				span.addMark(mark);
-				const newDomNode = span.toDOMNode();
-				this.spanOfDOMNode.set(newDomNode, span);
-			}
+			const oldDomNode = this.spanDomNodeBiMap.getv(span);
+			if (!oldDomNode) throw new Error("Impossible");
+			span.addMark(mark);
+			const domNode = span.toDOMNode();
+			this.spanDomNodeBiMap.set(domNode, span);
+			oldDomNode.parentNode?.replaceChild(domNode, oldDomNode);
 		}
+	}
+
+	// Given a list of spans, return a DOM Fragment that contains a list of DOM nodes
+	// where the ith node corresponds to the ith span in `spans`. 
+	getDOMFragmentFromSpans(spans: Span[]): DocumentFragment {
+		const fragment = document.createDocumentFragment();
+		for (const span of spans) {
+			const newDomNode = span.toDOMNode();
+			fragment.append(newDomNode);
+			this.spanDomNodeBiMap.set(newDomNode, span);
+		}
+		return fragment;
 	}
 
 	// replace the spans in range [from, to], with [spans].
@@ -155,14 +184,7 @@ class Doc {
 		// currently they're not being garbage collected even though they're not needed.
 		this.spans = before.concat(spans, after);
 
-		// sync the dom Nodes as well.
-		const fragment = document.createDocumentFragment();
-		for (const span of spans) {
-			const newDomNode = span.toDOMNode();
-			fragment.append(newDomNode);
-			this.spanOfDOMNode.set(newDomNode, span);
-		}
-		return fragment;
+		return this.getDOMFragmentFromSpans(spans);
 	}
 }
 
@@ -187,6 +209,12 @@ const BoldMark = new Mark("bold", (node) => {
 
 const ItalicMark = new Mark("italic", (node) => {
 	const newNode = document.createElement("em");
+	newNode.appendChild(node);
+	return newNode;
+});
+
+const UnderlineMark = new Mark("underline", (node) => {
+	const newNode = document.createElement("u");
 	newNode.appendChild(node);
 	return newNode;
 });
@@ -275,10 +303,7 @@ class Editor {
 		// The HTML div on which to mount the editor.
 		private readonly div: HTMLDivElement
 	) {
-		const text = this.div.childNodes[0];
 		this.document = new Doc(this, this.div);
-		const span = new Span(this.document, text.nodeValue ?? "");
-		this.document.spans.push(span);
 
 		// After about ~2-3 days of struggling to find the right way to handle input while
 		// keeping the View and State in sync, I've finally found the perfect event to listen to,
@@ -303,6 +328,7 @@ class Editor {
 
 		Input.addHotkeyTo(this.div, "b", Modifier.cmd, this.bold.bind(this));
 		Input.addHotkeyTo(this.div, "i", Modifier.cmd, this.italic.bind(this));
+		Input.addHotkeyTo(this.div, "u", Modifier.cmd, this.underline.bind(this));
 	}
 
 	private getSelectionAndRange(): [Selection, Range] {
@@ -323,6 +349,14 @@ class Editor {
 		if (!(selection && range)) return;
 		this.document.addMarkToRange(selection, range, ItalicMark);
 	}
+
+
+	private underline() {
+		const [selection, range] = this.getSelectionAndRange();
+		if (!(selection && range)) return;
+		this.document.addMarkToRange(selection, range, UnderlineMark);
+	}
+
 
 	// When new text is inserted into (or removed from) the editor,
 	// the state has to be updated so that its in sync with the DOM.
