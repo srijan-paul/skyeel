@@ -1,4 +1,5 @@
 import { identity } from "lodash";
+import BiMap from "./bimap";
 
 const enum Modifier {
 	none = 0b0000,
@@ -41,7 +42,7 @@ class Input {
 class Doc {
 	spans: Span[] = [];
 
-	private readonly spanOfDOMNode = new Map<Node, Span>();
+	private readonly spanOfDOMNode = new BiMap<Node, Span>();
 
 	// TODO: in the future, the Doc should be capable of constructing
 	// itself givne an editor.
@@ -129,7 +130,19 @@ class Doc {
 			// TODO: select the whole new set of spans (correctly), instead of resetting back
 			// to the beginning.
 			this.restoreCaret(firstChild, range, 0);
-			return;
+		}
+
+		for (let i = beginSpanIdx; i <= endSpanIdx; ++i) {
+			const span = this.spans[i];
+			if (i === beginSpanIdx) {
+				// todo
+			} else if (i === endSpanIdx) {
+				// todo
+			} else {
+				span.addMark(mark);
+				const newDomNode = span.toDOMNode();
+				this.spanOfDOMNode.set(newDomNode, span);
+			}
 		}
 	}
 
@@ -187,7 +200,7 @@ class Span {
 	readonly markSet = new Set<Mark>();
 
 	static addMarkToRange(span: Span, from: number, to: number, mark: Mark) {
-		return span.slice(from, to, mark);
+		return span.addMarkToSlice(from, to, mark);
 	}
 
 	constructor(
@@ -226,7 +239,7 @@ class Span {
 		return new Span(this.doc, this.text.substring(from, to));
 	}
 
-	slice(from: number, to: number, markToAdd?: Mark): Span[] {
+	addMarkToSlice(from: number, to: number, markToAdd?: Mark): Span[] {
 		if (from === 0 && to === this.text.length) {
 			if (markToAdd) this.addMark(markToAdd);
 			return [this];
