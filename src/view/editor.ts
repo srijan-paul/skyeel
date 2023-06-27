@@ -105,8 +105,6 @@ export default class Editor {
 	}
 
 	private insertTextAtSelection(text: string) {
-		const selection = window.getSelection();
-		if (!selection) throw new Error("Impossible");
-		// this.document.insertTextAtSelection(selection, text);
+		this.bridge.insertTextAtCurrentSelection(text);
 	}
 }

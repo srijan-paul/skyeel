@@ -1,4 +1,4 @@
-import { type Span } from "./document";
+import type Span from "./span";
 
 /**
  * A definite location inside the document.
