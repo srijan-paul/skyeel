@@ -8,12 +8,78 @@ import DocSelection from "../model/selection";
 import { ReplaceSpanPayload } from "../model/event-emitter";
 import { Event as DocumentEvent } from "../model/event-emitter";
 
+const enum SelectionDir {
+	leftToRight,
+	rightToLeft,
+}
+
+class SelectionManager {
+	constructor(private readonly doc: Doc, private readonly bridge: Bridge) {}
+
+	get selectionInDOM(): Selection | null {
+		return window.getSelection();
+	}
+
+	get currentRange(): Range | undefined {
+		const sel = this.selectionInDOM;
+		return sel?.getRangeAt(0);
+	}
+
+	private checkSelectionDir(sel: Selection): SelectionDir {
+		const anchorNode = sel.anchorNode!;
+		const focusNode = sel.focusNode!;
+
+		const { anchorOffset, focusOffset } = sel;
+		if (anchorNode === focusNode) {
+			return focusOffset > anchorOffset ? SelectionDir.leftToRight : SelectionDir.rightToLeft;
+		}
+
+		const relativePos = anchorNode.compareDocumentPosition(focusNode);
+		return relativePos === document.DOCUMENT_POSITION_PRECEDING
+			? SelectionDir.rightToLeft
+			: SelectionDir.leftToRight;
+	}
+
+	get selection(): DocSelection | null {
+		const sel = this.selectionInDOM;
+		const range = sel?.getRangeAt(0);
+		if (!(sel && range)) return null;
+
+		const dir = this.checkSelectionDir(sel);
+
+		let startNode: Node, endNode: Node;
+		let startOffset: number, endOffset: number;
+
+		if (dir === SelectionDir.leftToRight) {
+			startNode = sel.anchorNode!;
+			endNode = sel.focusNode!;
+			startOffset = sel.anchorOffset!;
+			endOffset = sel.focusOffset!;
+		} else {
+			startNode = sel.focusNode!;
+			endNode = sel.anchorNode!;
+			startOffset = sel.focusOffset!;
+			endOffset = sel.anchorOffset!;
+		}
+
+		const [beginSpanIdx, endSpanIdx] = this.bridge.spanRangeBetweenNodes(startNode, endNode);
+		const beginSpan = this.doc.spans.at(beginSpanIdx);
+		const endSpan = this.doc.spans.at(endSpanIdx);
+
+		return new DocSelection(
+			{ span: beginSpan, index: startOffset },
+			{ span: endSpan, index: endOffset }
+		);
+	}
+}
+
 /**
  * A bridge connects the editor state to the editor view.
  */
 export default class Bridge {
 	// A bidirectional mapping between DOM Nodes and spans in the editor.
 	private readonly spanOfDOMNode = new BiMap<Node, Span>();
+	private readonly selectionManager: SelectionManager;
 
 	constructor(
 		// The headless state of the document.
@@ -21,6 +87,8 @@ export default class Bridge {
 		// The editor view.
 		private readonly editor: Editor
 	) {
+		this.selectionManager = new SelectionManager(this.document, this);
+
 		this.spanOfDOMNode.set(this.editor.div.childNodes[0], document.spans.at(0));
 
 		this.document.on(DocumentEvent.spanReplaced, this.syncDomWithReplacedSpans.bind(this));
@@ -28,6 +96,7 @@ export default class Bridge {
 	}
 
 	private syncDomWithReplacedSpans({ removed, added }: ReplaceSpanPayload) {
+		// TODO: refactor
 		if (removed.length === 0) impossible();
 		const firstRemovedNode = removed[0];
 		const firstDomNodeToRemove = this.spanOfDOMNode.getv(firstRemovedNode);
@@ -75,37 +144,15 @@ export default class Bridge {
 		this.editor.div.replaceChildren(domFragment);
 	}
 
-	/**
-	 * Convert a A DOM selection object to the corresponding selection in the document.
-	 */
-	docSelection(sel: Selection): DocSelection {
-		const anchorNode = sel.anchorNode!;
-		const focusNode = sel.focusNode!;
-		const { anchorOffset, focusOffset } = sel;
-
-		const [beginSpanIdx, endSpanIdx] = this.spanRangeBetweenNodes(anchorNode, focusNode);
-		const beginSpan = this.document.spans.at(beginSpanIdx);
-		const endSpan = this.document.spans.at(endSpanIdx);
-
-		return new DocSelection(
-			{ span: beginSpan, index: anchorOffset },
-			{ span: endSpan, index: focusOffset }
-		);
-	}
-
 	addMarkToCurrentSelection(mark: Mark) {
-		const domSel = window.getSelection();
-		if (!domSel) impossible();
-		const docSelection = this.docSelection(domSel);
-
-		this.document.addMarkToRange(docSelection, mark);
+		const selection = this.selectionManager.selection;
+		if (!selection) impossible();
+		this.document.addMarkToRange(selection, mark);
 	}
 
 	insertTextAtCurrentSelection(text: string) {
-		const domSel = window.getSelection();
-		if (!domSel) impossible();
-		const docSelection = this.docSelection(domSel);
-
+		const docSelection = this.selectionManager.selection;
+		if (!docSelection) impossible();
 		this.document.insertTextAt(docSelection, text);
 		this.render();
 	}
@@ -138,7 +185,7 @@ export default class Bridge {
 	/**
 	 * @returns a list of all spans that lie between `beginNode` and `endNode` (both inclusive).
 	 */
-	private spanRangeBetweenNodes(beginNode: Node, endNode: Node): Pair<number> {
+	spanRangeBetweenNodes(beginNode: Node, endNode: Node): Pair<number> {
 		const beginSpan = this.findEnclosingSpan(beginNode);
 		const endSpan = this.findEnclosingSpan(endNode);
 		const spanRange: Pair<number> = [
@@ -149,20 +196,5 @@ export default class Bridge {
 			impossible();
 		}
 		return spanRange;
-	}
-
-	/**
-	 * Given a list of spans, return a DOM Fragment that contains a list of DOM nodes
-	 * where the ith node corresponds to the ith span in `spans`.
-	 * @param spans The list of spans to generate DOM nodes from
-	 * @returns A `DocumentFragment` object containing `N` nodes, where `N == spans.length`
-	 */
-	private getDOMFragmentFromSpans(spans: Span[]): DocumentFragment {
-		const fragment = document.createDocumentFragment();
-		for (const span of spans) {
-			const newDomNode = span.toDOMNode();
-			fragment.append(newDomNode);
-		}
-		return fragment;
 	}
 }

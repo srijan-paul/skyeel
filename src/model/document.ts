@@ -1,8 +1,6 @@
 import Mark from "./mark";
-import { replaceArrayRange } from "../utils";
 import Selection from "./selection";
 import Span, { SpanList } from "./span";
-import { Emitter, Event } from "./event-emitter";
 
 /**
  * Represents the state of the text as a linear list of spans.
@@ -15,7 +13,7 @@ export default class Doc {
 	 * [("The ", []), ("quick", [bold]), (" brown ", []), ("fox", [italic])]
 	 * ```
 	 */
-	spans = new SpanList;
+	spans = new SpanList();
 
 	// TODO: in the future, the Doc should be capable of constructing
 	// itself givne an editor.
@@ -34,7 +32,7 @@ export default class Doc {
 	/**
 	 * subscribe to a document event.
 	 */
-	on = this.spans.on
+	on = this.spans.on;
 
 	/**
 	 * Insert `text` in the current selection.

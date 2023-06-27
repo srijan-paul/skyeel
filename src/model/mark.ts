@@ -1,4 +1,4 @@
-import _ from 'lodash'
+import _ from "lodash";
 
 /**
  * A mark represents some kind of formatting.
@@ -33,4 +33,3 @@ export const UnderlineMark = new Mark("underline", (node) => {
 	newNode.appendChild(node);
 	return newNode;
 });
-

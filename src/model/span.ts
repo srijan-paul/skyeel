@@ -54,7 +54,6 @@ export default class Span {
 		return this.text;
 	}
 
-
 	/**
 	 * removes the text in range `[from, to)` inside the span.
 	 */

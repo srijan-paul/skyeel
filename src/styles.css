@@ -1,26 +1,26 @@
 .editor {
-    border: 1px solid black;
-    min-width: 50%; 
-    min-height: 500px;
-    outline: none;
-    padding: 10px;
+	border: 1px solid black;
+	min-width: 50%;
+	min-height: 500px;
+	outline: none;
+	padding: 10px;
 }
 
 #alice {
-    color: #5f1810;
+	color: #5f1810;
 }
 
 strong {
-    color: inherit;
+	color: inherit;
 }
 
 #bob {
-    color: #192a56;
+	color: #192a56;
 }
 
 .container {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    padding: 20px;
+	display: flex;
+	flex-direction: row;
+	gap: 20px;
+	padding: 20px;
 }

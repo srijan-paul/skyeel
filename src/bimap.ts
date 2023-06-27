@@ -11,7 +11,6 @@ export default class BiMap<TKey, TValue> {
 		this.revMap.set(value, key);
 	}
 
-
 	setv(value: TValue, key: TKey) {
 		this.map.set(key, value);
 		this.revMap.set(value, key);
@@ -39,11 +38,11 @@ export default class BiMap<TKey, TValue> {
 	get = this.map.get.bind(this.map);
 	getv = this.revMap.get.bind(this.revMap);
 
-    clear() {
-        this.map.clear();
-        this.revMap.clear();
-    }
+	clear() {
+		this.map.clear();
+		this.revMap.clear();
+	}
 
-    entries = Map.prototype.entries.bind(this.map);
-    entriesvk = Map.prototype.entries.bind(this.revMap);
+	entries = Map.prototype.entries.bind(this.map);
+	entriesvk = Map.prototype.entries.bind(this.revMap);
 }

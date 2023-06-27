@@ -1,4 +1,4 @@
-import Editor from './view/editor';
+import Editor from "./view/editor";
 
 const alice = document.getElementById("alice");
 if (alice instanceof HTMLDivElement) {

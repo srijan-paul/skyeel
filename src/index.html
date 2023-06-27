@@ -1,23 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CRDT for collaborative text editing</title>
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css"
-    />
-    <link rel="stylesheet" href="./styles.css" type="text/css" />
-  </head>
-  <body>
-    <div class="container">
-      <div id="alice" contenteditable="true" class="editor">The quick brown fox</div>
-      <div id="bob" contenteditable="true" class="editor">
-        Jumped over the lazy dog.
-      </div>
-    </div>
-    <script src="./index.ts" type="module"></script>
-  </body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>CRDT for collaborative text editing</title>
+		<link
+			rel="stylesheet"
+			type="text/css"
+			href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css"
+		/>
+		<link rel="stylesheet" href="./styles.css" type="text/css" />
+	</head>
+	<body>
+		<div class="container">
+			<div id="alice" contenteditable="true" class="editor">The quick brown fox</div>
+			<div id="bob" contenteditable="true" class="editor">Jumped over the lazy dog.</div>
+		</div>
+		<script src="./index.ts" type="module"></script>
+	</body>
 </html>

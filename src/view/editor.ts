@@ -1,6 +1,6 @@
-import Doc from '../model/document'
-import { BoldMark, ItalicMark, UnderlineMark } from '../model/mark'
-import Bridge from './bridge';
+import Doc from "../model/document";
+import { BoldMark, ItalicMark, UnderlineMark } from "../model/mark";
+import Bridge from "./bridge";
 
 const enum Modifier {
 	none = 0b0000,
@@ -40,7 +40,7 @@ class Input {
 }
 
 export default class Editor {
-	private readonly bridge: Bridge
+	private readonly bridge: Bridge;
 
 	constructor(
 		// The HTML div on which to mount the editor.

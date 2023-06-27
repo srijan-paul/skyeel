@@ -6,7 +6,7 @@ import type Span from "./span";
  */
 export interface Coord {
 	span: Span;
-    // An index into the span's text (0-indexec).
+	// An index into the span's text (0-indexec).
 	index: number;
 }
 
@@ -26,7 +26,7 @@ export default class Selection implements Selection {
 	constructor(
 		// start location
 		public readonly from: Coord,
-        // end location
+		// end location
 		public readonly to: Coord
 	) {}
 }
