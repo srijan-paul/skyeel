@@ -80,16 +80,27 @@ export default class Bridge {
 	// A bidirectional mapping between DOM Nodes and spans in the editor.
 	private readonly spanOfDOMNode = new BiMap<Node, Span>();
 	private readonly selectionManager: SelectionManager;
+	private readonly document = new Doc;
 
 	constructor(
-		// The headless state of the document.
-		private readonly document: Doc,
 		// The editor view.
 		private readonly editor: Editor
 	) {
 		this.selectionManager = new SelectionManager(this.document, this);
 
-		this.spanOfDOMNode.set(this.editor.div.childNodes[0], document.spans.at(0));
+
+		const rootElement = this.editor.div;
+
+		if (rootElement.childNodes.length === 0) {
+			const textNode = new Text("");
+			rootElement.appendChild(textNode);
+		}
+		const textNode = rootElement.childNodes[0];
+		if (!(textNode instanceof Text && typeof textNode.textContent === "string"))
+			throw new Error("Editor must be a div with only text inside it.");
+		const firstSpan = new Span(this.document, textNode.textContent);
+		this.document.spans.insertAtEnd(firstSpan);
+		this.spanOfDOMNode.set(this.editor.div.childNodes[0], this.document.spans.at(0));
 
 		this.document.on(DocumentEvent.spanReplaced, this.syncDomWithReplacedSpans.bind(this));
 		this.document.on(DocumentEvent.markAdded, this.syncDomWithUpdatedSpans.bind(this));

@@ -46,8 +46,7 @@ export default class Editor {
 		// The HTML div on which to mount the editor.
 		readonly div: HTMLDivElement
 	) {
-		const doc = new Doc(this.div);
-		this.bridge = new Bridge(doc, this);
+		this.bridge = new Bridge(this);
 
 		// After about ~2-3 days of struggling to find the right way to handle input while
 		// keeping the View and State in sync, I've finally found the perfect event to listen to,

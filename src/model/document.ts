@@ -15,20 +15,6 @@ export default class Doc {
 	 */
 	spans = new SpanList();
 
-	// TODO: in the future, the Doc should be capable of constructing
-	// itself givne an editor.
-	constructor(private readonly rootElement: HTMLDivElement) {
-		if (rootElement.childNodes.length === 0) {
-			const textNode = new Text("");
-			this.rootElement.appendChild(textNode);
-		}
-		const textNode = this.rootElement.childNodes[0];
-		if (!(textNode instanceof Text && typeof textNode.textContent === "string"))
-			throw new Error("Editor must be a div with only text inside it.");
-		const firstSpan = new Span(this, textNode.textContent);
-		this.spans.insertAtEnd(firstSpan);
-	}
-
 	/**
 	 * subscribe to a document event.
 	 */
