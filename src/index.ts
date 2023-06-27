@@ -1,5 +1,10 @@
 import { identity } from "lodash";
 import BiMap from "./bimap";
+import { replaceArrayRange } from "./utils";
+
+
+type Pair<T1, T2 = T1> = [T1, T2];
+
 
 const enum Modifier {
 	none = 0b0000,
@@ -8,8 +13,9 @@ const enum Modifier {
 	alt = 0b0010,
 }
 
-type Pair<T1, T2 = T1> = [T1, T2];
-
+/**
+ * A helper class to add hotkeys with modifier keys.
+ */
 class Input {
 	static getModifierMaskFromEvent(event: KeyboardEvent): Modifier {
 		let mod = Modifier.none;
@@ -37,9 +43,18 @@ class Input {
 	}
 }
 
-// A `document` represents the state of the editor
-// in memory. It is a linear list of spans.
+/**
+ * Represents the state of the text as a linear list of spans.
+ */
 class Doc {
+	/**
+	 * The a document is represented as a linear list of spans.
+	 * So, a text like this: "The **quick** brown *fox*." is represented as:
+	 * ```
+	 * [("The ", []), ("quick", [bold]), (" brown ", []), ("fox", [italic])]
+	 * ```
+	 * Every span is mapped to exactly one node in the DOM.
+	 */
 	private spans: Span[] = [];
 
 	private readonly spanDomNodeBiMap = new BiMap<Node, Span>();
@@ -59,8 +74,9 @@ class Doc {
 		this.spanDomNodeBiMap.set(textNode, firstSpan);
 	}
 
-	// find the nearest span that contains [node]
-	// inside itself.
+	/**
+	 * @returns The span that is mapped to [node].
+	 */
 	private findEnclosingSpan(node: Node): Span {
 		let currentNode: Node | null = node;
 		while (currentNode) {
@@ -71,8 +87,10 @@ class Doc {
 		throw new Error("Could not find enclosing span for DOM node");
 	}
 
-	// Insert `text` in `node` at the current caret/selection position.
-	insertTextInNode(selection: Selection, text: string) {
+	/**
+	 * Insert `text` in the current selection.
+	 */
+	insertTextAtSelection(selection: Selection, text: string) {
 		// TODO: handle right to left selections (?)
 		const anchorNode = selection.anchorNode!;
 		const { anchorOffset, focusOffset } = selection;
@@ -97,7 +115,9 @@ class Doc {
 		selection.addRange(originalRange);
 	}
 
-	// Given two DOM Nodes, find all spans that lie between the two.
+	/**
+	 * @returns a list of all spans that lie between `beginNode` and `endNode` (both inclusive).
+	 */
 	private spanRangeBetweenNodes(beginNode: Node, endNode: Node): Pair<number> {
 		const beginSpan = this.findEnclosingSpan(beginNode);
 		const endSpan = this.findEnclosingSpan(endNode);
@@ -108,7 +128,12 @@ class Doc {
 		return spanRange;
 	}
 
-	// Add [Mark] to all spans in [range].
+	/**
+	 * Add `mark` to add spans that have some overlap with the current selection.
+	 * @param selection Current selection.
+	 * @param range The range of text selected (same as `selection.getRangeAt(0)`).
+	 * @param mark The mark to add
+	 */
 	addMarkToRange(selection: Selection, range: Range, mark: Mark) {
 		// TODO: handle right to left selections.
 		const startNode = selection.anchorNode!;
@@ -122,14 +147,14 @@ class Doc {
 		if (beginSpanIdx === endSpanIdx) {
 			// The entire selection is within a single span.
 			const span = this.spans[beginSpanIdx];
-			// the old spans should be replaced by these new spans
+			// the old span should be replaced by these new spans
 			const newSpans = Span.addMarkToRange(span, from, to, mark);
 			const newDomFragment = this.replaceSpansWith(beginSpanIdx, beginSpanIdx + 1, newSpans);
 			const firstChild = newDomFragment.children[0];
 			startNode.parentNode?.replaceChild(newDomFragment, startNode);
 
 			// TODO: The newly added span should stay selected. Currently,
-			// we're resetting back to zero.
+			// we're resetting back to the beginning.
 			this.restoreCaret(firstChild, range, 0);
 			return;
 		}
@@ -143,14 +168,30 @@ class Doc {
 		const lastSpan = this.spans[endSpanIdx];
 		const newLastSpans = Span.addMarkToRange(lastSpan, 0, to, mark);
 		const lastDOMFragment = this.getDOMFragmentFromSpans(newLastSpans);
-		
 
 		// TODO: assert that the node mapped to `firstSpan` is indeed `selection.anchorNode`.
 
 		startNode.parentNode?.replaceChild(firstDOMFragment, startNode);
 		endNode.parentNode?.replaceChild(lastDOMFragment, endNode);
+
+		this.spans = replaceArrayRange(this.spans, beginSpanIdx, beginSpanIdx + 1, newFirstSpans);
+		// Once `firstSpan` has been replaced with `newFirstSpans`,
+		// the array size will have grown by some number.
+		// We need to account for this when replacing the last span,
+		// since it has moved past `endSpanIdx` by now.
+		const arrayLenDiff = newFirstSpans.length - 1;
+		const newEndIdx = endSpanIdx += arrayLenDiff;
+		this.spans = replaceArrayRange(
+			this.spans,
+			newEndIdx ,
+			newEndIdx + 1,
+			newLastSpans
+		);
 	}
 
+	/**
+	 * Add `mark` to all spans in `[from, to)`.
+	 */
 	private addMarkToSpansBetween(from: number, to: number, mark: Mark) {
 		for (let i = from; i < to; ++i) {
 			const span = this.spans[i];
@@ -163,9 +204,13 @@ class Doc {
 		}
 	}
 
-	// Given a list of spans, return a DOM Fragment that contains a list of DOM nodes
-	// where the ith node corresponds to the ith span in `spans`. 
-	getDOMFragmentFromSpans(spans: Span[]): DocumentFragment {
+	/**
+	 * Given a list of spans, return a DOM Fragment that contains a list of DOM nodes
+	 * where the ith node corresponds to the ith span in `spans`.
+	 * @param spans The list of spans to generate DOM nodes from
+	 * @returns A `DocumentFragment` object containing `N` nodes, where `N == spans.length`
+	 */
+	private getDOMFragmentFromSpans(spans: Span[]): DocumentFragment {
 		const fragment = document.createDocumentFragment();
 		for (const span of spans) {
 			const newDomNode = span.toDOMNode();
@@ -175,20 +220,24 @@ class Doc {
 		return fragment;
 	}
 
-	// replace the spans in range [from, to], with [spans].
-	replaceSpansWith(from: number, to: number, spans: Span[]): DocumentFragment {
-		const before = this.spans.slice(0, from);
-		const after = this.spans.slice(to);
+	/**
+	 * Replace the spans in range [from, to), with `spans`.
+	 */
+	private replaceSpansWith(from: number, to: number, spans: Span[]): DocumentFragment {
+		// remove the old spans from the map, so the GC can delete them from existence.
+		for (let i = from; i < to; ++i) {
+			this.spanDomNodeBiMap.deletev(this.spans[i]);
+		}
 
-		// TODO: free the old spans from the Map,
-		// currently they're not being garbage collected even though they're not needed.
-		this.spans = before.concat(spans, after);
-
+		this.spans = replaceArrayRange(this.spans, from, to, spans);
 		return this.getDOMFragmentFromSpans(spans);
 	}
 }
 
-// A "Mark" represents some kind of formatting like: bold, italic, underline, etc.
+/**
+ * A mark represents some kind of formatting.
+ * Like bold, italic, underline, etc.
+ */
 class Mark {
 	constructor(
 		// "bold", "italic", "color", "underline", etc.
@@ -227,6 +276,22 @@ class Span {
 	// to be applied to this span. E.g: [bold, italic]
 	readonly markSet = new Set<Mark>();
 
+	/**
+	 * Add `mark` to a range of text inside `span`.
+	 * Doing so can cause the span to split into multiple spans.
+	 * ### Example:
+	 * ```js
+	 * // add the bold mark to range 4->9 (quick).
+	 * addMarkToRange(["The quick brown fox", ()], 4, 9, BoldMark);
+	 * 
+	 * [["The ", ()], ["quick", (BoldMark)], ["brown fox", ()]]
+	 * ```
+	 * @param span The span to split.
+	 * @param from beginning of the range (inclusive).
+	 * @param to end of the range (exclusive).
+	 * @param mark The mark to add.
+	 * @returns An array containing the resulting spans.
+	 */
 	static addMarkToRange(span: Span, from: number, to: number, mark: Mark) {
 		return span.addMarkToSlice(from, to, mark);
 	}
@@ -263,11 +328,11 @@ class Span {
 		return this;
 	}
 
-	makeChild(from: number, to: number) {
+	private makeChild(from: number, to: number) {
 		return new Span(this.doc, this.text.substring(from, to));
 	}
 
-	addMarkToSlice(from: number, to: number, markToAdd?: Mark): Span[] {
+	private addMarkToSlice(from: number, to: number, markToAdd?: Mark): Span[] {
 		if (from === 0 && to === this.text.length) {
 			if (markToAdd) this.addMark(markToAdd);
 			return [this];
@@ -350,16 +415,16 @@ class Editor {
 		this.document.addMarkToRange(selection, range, ItalicMark);
 	}
 
-
 	private underline() {
 		const [selection, range] = this.getSelectionAndRange();
 		if (!(selection && range)) return;
 		this.document.addMarkToRange(selection, range, UnderlineMark);
 	}
 
-
-	// When new text is inserted into (or removed from) the editor,
-	// the state has to be updated so that its in sync with the DOM.
+	/**
+	 * Handle an input event by updating the Document in memory, then syncing it with the DOM.
+	 * @param event A "beforeinput" event.
+	 */
 	private handleInput(event: Event) {
 		if (!(event instanceof InputEvent)) return;
 		const { data } = event;
@@ -368,7 +433,7 @@ class Editor {
 			this.insertTextAtSelection(data);
 			event.preventDefault();
 		} else {
-			console.log(event.inputType, "is not supported yet.");
+			console.error(event.inputType, "is not supported yet.");
 			event.preventDefault();
 		}
 	}
@@ -376,7 +441,7 @@ class Editor {
 	private insertTextAtSelection(text: string) {
 		const selection = window.getSelection();
 		if (!selection) throw new Error("Impossible");
-		this.document.insertTextInNode(selection, text);
+		this.document.insertTextAtSelection(selection, text);
 	}
 }
 

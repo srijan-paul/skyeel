@@ -25,6 +25,14 @@ export default class BiMap<TKey, TValue> {
 		}
 	}
 
+	deletev(value: TValue) {
+		const key = this.revMap.get(value);
+		if (key) {
+			this.revMap.delete(value);
+			this.map.delete(key);
+		}
+	}
+
 	hasKey = this.map.has.bind(this.map);
 	hasValue = this.revMap.has.bind(this.revMap);
 

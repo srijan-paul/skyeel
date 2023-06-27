@@ -10,6 +10,10 @@
     color: #c0392b;
 }
 
+strong {
+    color: inherit;
+}
+
 #bob {
     color: #192a56;
 }
