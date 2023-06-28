@@ -6,19 +6,21 @@ import Span from "../../src/model/span";
 describe("Doc", () => {
 	const doc = new Doc();
 
-	it("Doc#insertTextAt", () => {
-		// "" -> "The quick brown fox"
-		const span = new Span(doc, "");
-		doc.spans.insertAtEnd(span);
-		doc.insertTextAt(
-			{
-				from: { span: doc.spans.at(0), index: 0 },
-				to: { span: doc.spans.at(0), index: 0 },
-			},
-			"The quick brown fox"
-		);
-		expect(doc.spans.length).toStrictEqual(1);
-		expect(doc.spans.at(0).text).toStrictEqual("The quick brown fox");
+	describe("Doc#insertTextAt", () => {
+		it("works as expected", () => {
+			// "" -> "The quick brown fox"
+			const span = new Span(doc, "");
+			doc.spans.insertAtEnd(span);
+			doc.insertTextAt(
+				{
+					from: { span: doc.spans.at(0), index: 0 },
+					to: { span: doc.spans.at(0), index: 0 },
+				},
+				"The quick brown fox"
+			);
+			expect(doc.spans.length).toStrictEqual(1);
+			expect(doc.spans.at(0).text).toStrictEqual("The quick brown fox");
+		});
 	});
 
 	describe("Doc#addMarkToSelection", () => {
