@@ -79,14 +79,13 @@ export default class Bridge {
 	// A bidirectional mapping between DOM Nodes and spans in the editor.
 	private readonly spanOfDOMNode = new BiMap<Node, Span>();
 	private readonly selectionManager: SelectionManager;
-	private readonly document = new Doc;
+	private readonly document = new Doc();
 
 	constructor(
 		// The editor view.
 		private readonly editor: Editor
 	) {
 		this.selectionManager = new SelectionManager(this.document, this);
-
 
 		const rootElement = this.editor.div;
 
