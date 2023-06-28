@@ -37,8 +37,7 @@ export default class Doc {
 	 * @param selection Current selection.
 	 * @param mark The mark to add
 	 */
-	addMarkToRange({ from, to }: Selection, mark: Mark) {
-		// TODO: handle right to left selections.
+	addMarkToSelection({ from, to }: Selection, mark: Mark) {
 		const beginSpanIdx = this.spans.indexOf(from.span);
 		const endSpanIdx = this.spans.indexOf(to.span);
 		const fromIndex = from.index;

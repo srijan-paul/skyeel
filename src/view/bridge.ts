@@ -157,7 +157,7 @@ export default class Bridge {
 	addMarkToCurrentSelection(mark: Mark) {
 		const selection = this.selectionManager.selection;
 		if (!selection) impossible();
-		this.document.addMarkToRange(selection, mark);
+		this.document.addMarkToSelection(selection, mark);
 	}
 
 	insertTextAtCurrentSelection(text: string) {
