@@ -1,6 +1,6 @@
 import Mark from "./mark";
 import Selection from "./selection";
-import Span, { SpanList } from "./span";
+import { SpanList } from "./span";
 
 /**
  * Represents the state of the text as a linear list of spans.
@@ -24,7 +24,6 @@ export default class Doc {
 	 * Insert `text` in the current selection.
 	 */
 	insertTextAt(selection: Selection, text: string) {
-		// TODO: handle right to left selections (?)
 		// TODO: handle the case where the selection spans multiple nodes.
 		if (selection.from.span !== selection.to.span) {
 			throw new Error("Not implemented");
@@ -50,7 +49,7 @@ export default class Doc {
 			return;
 		}
 
-		this.spans.addMarkToAllSpansBetween(mark, beginSpanIdx + 1, endSpanIdx);
+		this.spans.addMarkToSpansBetween(mark, beginSpanIdx + 1, endSpanIdx);
 
 		const newFirstSpans = this.spans.addMarkInsideSpanAt(beginSpanIdx, mark, fromIndex);
 		// Once `firstSpan` has been replaced with `newFirstSpans`,

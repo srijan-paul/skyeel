@@ -37,7 +37,7 @@ export default class Span {
 		// Text stored in this span.
 		public text: string,
 
-		public marks?: Mark[] | Set<Mark>
+		marks?: Mark[] | Set<Mark>
 	) {
 		if (marks) {
 			this.markSet = new Set(marks);
@@ -138,6 +138,10 @@ export class SpanList {
 		return this.spans[index];
 	}
 
+	get length(): number {
+		return this.spans.length;
+	}
+
 	/**
 	 * @returns The `index` of `span`.
 	 */
@@ -163,7 +167,7 @@ export class SpanList {
 	 * Add `mark` to all spans in range `[from, to)`.
 	 * `to` is `from + 1` by default.
 	 */
-	addMarkToAllSpansBetween(mark: Mark, from: number, to: number = from + 1) {
+	addMarkToSpansBetween(mark: Mark, from: number, to: number = from + 1) {
 		for (let i = from; i < to; ++i) {
 			this.spans[i].addMark(mark);
 		}

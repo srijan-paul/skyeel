@@ -5,8 +5,7 @@ import Mark from "../model/mark";
 import type Editor from "./editor";
 import { Pair, impossible } from "../utils";
 import DocSelection from "../model/selection";
-import { ReplaceSpanPayload } from "../model/event-emitter";
-import { Event as DocumentEvent } from "../model/event-emitter";
+import { ReplaceSpanPayload, Event as DocumentEvent } from "../model/event-emitter";
 
 const enum SelectionDir {
 	leftToRight,

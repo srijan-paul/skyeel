@@ -1,6 +1,7 @@
-import Span from "../../src/model/span";
+import Span, { SpanList } from "../../src/model/span";
 import Doc from "../../src/model/document";
 import { BoldMark } from "../../src/model/mark";
+import { Event } from "../../src/model/event-emitter";
 
 describe("Span", () => {
 	const doc = new Doc();
@@ -30,8 +31,6 @@ describe("Span", () => {
 	});
 
 	describe("Span#insertTextAt", () => {
-		const emptySpan = new Span(doc, "");
-
 		it("works correctly", () => {
 			const span = new Span(doc, "hello, world!");
 			span.insertTextAt("x", 1);
@@ -51,7 +50,6 @@ describe("Span", () => {
 			expect(span.text).toStrictEqual("< bye, world! >");
 		});
 
-
 		it("works when position is the entire span", () => {
 			const span = new Span(doc, "hello");
 			span.insertTextAt("bye", 0, 5);
@@ -63,5 +61,123 @@ describe("Span", () => {
 			span.insertTextAt("hello, world!", 0);
 			expect(span.text).toStrictEqual("hello, world!");
 		});
+	});
+
+	describe("Span#removeText", () => {
+		it("works as intended", () => {
+			const span = new Span(doc, "hello, world!");
+			span.removeText(5, 7);
+			expect(span.text).toBe("helloworld!");
+		});
+
+		it("works for a single character", () => {
+			const span = new Span(doc, "hello, world!");
+			span.removeText(5, 6);
+			expect(span.text).toBe("hello world!");
+		});
+
+		it("works for beginning and end", () => {
+			const span = new Span(doc, "hello, world!");
+			span.removeText(0, 2);
+			span.removeText(3, span.text.length);
+			expect(span.text).toBe("llo");
+		});
+
+		it("works for the entire span", () => {
+			const span = new Span(doc, "hello, world!");
+			span.removeText(0, span.text.length);
+			expect(span.text).toBe("");
+		});
+	});
+
+	describe("Span#addMark", () => {
+		it("works as intended", () => {
+			const span = new Span(doc, "hello");
+			span.addMark(BoldMark);
+			expect(span.markSet.has(BoldMark)).toBe(true);
+		});
+	});
+
+	describe("Span#addMark", () => {
+		it("works as intended", () => {
+			const span = new Span(doc, "hello");
+			span.addMark(BoldMark);
+			expect(span.toArray()).toStrictEqual([span.text, ["bold"]]);
+		});
+	});
+});
+
+describe("SpanList", () => {
+	const doc = new Doc();
+	const str = "The quick brown fox jumped over the lazy dog";
+	const spList = new SpanList();
+	str.split(" ").forEach((txt) => spList.insertAtEnd(new Span(doc, txt)));
+	it("SpanList#at", () => {
+		expect(spList.at(0).text).toBe("The");
+		expect(spList.at(spList.length - 1).text).toBe("dog");
+	});
+
+	it("SpanList#indexOf", () => {
+		expect(spList.indexOf(spList.at(4))).toBe(4);
+	});
+
+	it("SpanList#indexOf", () => {
+		let text = "";
+		spList.forEach((span) => (text += span.text));
+		expect(text).toBe("Thequickbrownfoxjumpedoverthelazydog");
+	});
+
+	it("SpanList#indexOf", () => {
+		const words = spList.map((span) => span.text);
+		expect(words).toStrictEqual(str.split(" "));
+	});
+
+	const eventCountMap = {
+		[Event.markAdded]: 0,
+		[Event.spanAdded]: 0,
+		[Event.spanRemoved]: 0,
+		[Event.spanReplaced]: 0,
+		[Event.textChanged]: 0,
+	};
+
+	spList.on(Event.markAdded, () => {
+		eventCountMap[Event.markAdded] += 1;
+	});
+
+	spList.on(Event.spanReplaced, () => {
+		eventCountMap[Event.spanReplaced] += 1;
+	});
+
+	it("SpanList#addMarkToAllSpansBetween", () => {
+		spList.addMarkToSpansBetween(BoldMark, 1, 3);
+		spList.forEach((sp, i) => {
+			const hasBold = sp.markSet.has(BoldMark);
+			if (i >= 1 && i < 3) expect(hasBold).toBeTruthy();
+			else expect(hasBold).toBeFalsy();
+		});
+		expect(eventCountMap[Event.markAdded]).toBe(1);
+	});
+
+	it("SpanList#addMarkInsideSpanAt", () => {
+		spList.addMarkInsideSpanAt(4, BoldMark, 1, 4);
+		const boldIndices = [1, 2, 5];
+		spList.forEach((sp, i) => {
+			const hasBold = sp.markSet.has(BoldMark);
+			if (boldIndices.includes(i)) expect(hasBold).toBeTruthy();
+			else expect(hasBold).toBeFalsy();
+		});
+
+		expect(spList.map((sp) => sp.text)).toStrictEqual(
+			"The quick brown fox j ump ed over the lazy dog".split(" ")
+		);
+
+		expect(eventCountMap[Event.spanReplaced]).toBe(1);
+	});
+
+	it("SpanList#replaceSpansBetween", () => {
+		spList.replaceSpansBetween(1, 4, [new Span(doc, "cat")]);
+		expect(spList.map((sp) => sp.text)).toStrictEqual(
+			"The cat j ump ed over the lazy dog".split(" ")
+		);
 	});
 });
