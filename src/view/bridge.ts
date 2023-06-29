@@ -169,7 +169,7 @@ export default class Bridge {
   }
 
   private onSpanAdd([span, index]: [Span, number]) {
-    console.log(this.document.spans.map(sp => sp.text))
+    console.log(this.document.spans.map((sp) => sp.text));
     const domNode = span.toDOMNode();
     this.spanOfDOMNode.set(domNode, span);
     if (index === 0) {
@@ -213,7 +213,9 @@ export default class Bridge {
   addMarkToCurrentSelection(mark: Mark) {
     const selection = this.selectionManager.selection;
     if (!selection) impossible();
+    this.document.spans.updateSelection(selection);
     this.document.addMarkToSelection(selection, mark);
+    this.syncSelection();
   }
 
   insertTextAtCurrentSelection(text: string) {
@@ -223,16 +225,34 @@ export default class Bridge {
     this.document.insertTextAt(docSelection, text);
   }
 
-  // After a DOM node's `textContent` property is updated, the caret
-  // will jump back to the beginning of the surrounding `contenteditable` div.
-  // We need to bring it back to the position where the edit happened.
-  private restoreCaret(node: Node, originalRange: Range, offset: number) {
-    originalRange.setStart(node, offset);
-    originalRange.setEnd(node, offset);
-    const selection = window.getSelection();
-    if (!selection) return;
-    selection.removeAllRanges();
-    selection.addRange(originalRange);
+  private syncSelection() {
+    const docSel = this.document.spans.selection;
+    const { from, to } = docSel;
+
+    const fromSpan = this.document.spans.at(from.spanIndex);
+    const toSpan = this.document.spans.at(to.spanIndex);
+
+    let fromNode = this.spanOfDOMNode.getv(fromSpan);
+    let toNode = this.spanOfDOMNode.getv(toSpan);
+    if (!(toNode && fromNode)) impossible();
+
+    toNode = this.getInnerMostNode(toNode);
+    fromNode = this.getInnerMostNode(fromNode);
+
+    const sel = window.getSelection();
+    const range = sel?.getRangeAt(0);
+    if (!(sel && range)) return;
+    range.setStart(fromNode, from.offset);
+    range.setEnd(toNode, to.offset);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  private getInnerMostNode(node: Node): Node {
+    while (node.hasChildNodes()) {
+      node = node.firstChild!;
+    }
+    return node;
   }
 
   /**

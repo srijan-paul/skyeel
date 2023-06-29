@@ -242,5 +242,22 @@ describe("SpanList", () => {
 
       expect(spanList.selection).toStrictEqual(new Selection(new Coord(0, 4), new Coord(1, 2)));
     });
+
+    it("works when the selection is *equal to* one of the child spans", () => {
+      const spanList = new SpanList();
+      toSpans(["The fox jumped"], doc).forEach((sp) => spanList.insertAtEnd(sp));
+
+      spanList.updateSelection({
+        from: { spanIndex: 0, offset: 4 },
+        to: { spanIndex: 0, offset: 7 },
+      });
+
+      expect(spanList.getSelectedText()).toStrictEqual("fox");
+
+      spanList.addMarkInsideSpanAt(0, BoldMark, 4, 7);
+      expect(spanList.map((sp) => sp.text)).toStrictEqual(["The ", "fox", " jumped"]);
+      expect(spanList.getSelectedText()).toStrictEqual("fox");
+      expect(spanList.selection).toStrictEqual(new Selection(new Coord(1, 0), new Coord(1, 3)));
+    });
   });
 });

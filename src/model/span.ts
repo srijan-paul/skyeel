@@ -246,7 +246,6 @@ export class SpanList {
 
     const sel = this.currentSelection;
     const delta = children.length - 1;
-
     if (sel.from.spanIndex > index) {
       // Selection begins after the span that was just split.
       sel.from.spanIndex += delta;
@@ -305,7 +304,7 @@ export class SpanList {
       toAdjusted = false;
     for (let i = 0; i < children.length; ++i) {
       const textlen = children[i].text.length;
-      if (!fromAdjusted && cumTextLen + textlen >= sel.from.offset) {
+      if (!fromAdjusted && cumTextLen + textlen > sel.from.offset) {
         sel.from.offset -= cumTextLen;
         sel.from.spanIndex += i;
         fromAdjusted = true;
