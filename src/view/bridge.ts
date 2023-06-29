@@ -169,7 +169,7 @@ export default class Bridge {
   }
 
   private onSpanAdd([span, index]: [Span, number]) {
-    console.log(this.document.spans.map(sp => sp.text))
+    console.log(this.document.spans.map((sp) => sp.text));
     const domNode = span.toDOMNode();
     this.spanOfDOMNode.set(domNode, span);
     if (index === 0) {

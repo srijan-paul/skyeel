@@ -161,7 +161,6 @@ export class SpanList {
       return firstSpan.text.substring(from.offset, to.offset);
     }
 
-
     let text = firstSpan.text.slice(from.offset);
     for (let i = from.spanIndex + 1; i < to.spanIndex; ++i) {
       text += this.spans[i].text;
