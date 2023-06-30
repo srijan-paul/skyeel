@@ -225,6 +225,9 @@ export default class Bridge {
     this.document.insertTextAt(docSelection, text);
   }
 
+  /**
+   * Sync the DOM selection with the current selection in the document.
+   */
   private syncSelection() {
     const docSel = this.document.spans.selection;
     const { from, to } = docSel;
@@ -236,8 +239,8 @@ export default class Bridge {
     let toNode = this.spanOfDOMNode.getv(toSpan);
     if (!(toNode && fromNode)) impossible();
 
-    toNode = this.getInnerMostNode(toNode);
-    fromNode = this.getInnerMostNode(fromNode);
+    toNode = Bridge.getInnerMostNode(toNode);
+    fromNode = Bridge.getInnerMostNode(fromNode);
 
     const sel = window.getSelection();
     const range = sel?.getRangeAt(0);
@@ -248,7 +251,10 @@ export default class Bridge {
     sel.addRange(range);
   }
 
-  private getInnerMostNode(node: Node): Node {
+  /**
+   * returns the innermost child of a DOM node.
+   */
+  private static getInnerMostNode(node: Node): Node {
     while (node.hasChildNodes()) {
       node = node.firstChild!;
     }
