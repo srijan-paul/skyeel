@@ -259,5 +259,42 @@ describe("SpanList", () => {
       expect(spanList.getSelectedText()).toStrictEqual("fox");
       expect(spanList.selection).toStrictEqual(new Selection(new Coord(1, 0), new Coord(1, 3)));
     });
+
+    it("works when a mark is added to multiple spans.", () => {
+      const spanList = new SpanList();
+
+      // The fox jumped -> The fox **jumped**.
+      toSpans(["The fox jumped"], doc).forEach((sp) => spanList.insertAtEnd(sp));
+
+      spanList.updateSelection({
+        from: { spanIndex: 0, offset: 8 },
+        to: { spanIndex: 0, offset: 14 },
+      });
+
+      expect(spanList.getSelectedText()).toStrictEqual("jumped");
+
+      spanList.addMarkInsideSpanAt(0, BoldMark, 8, 14);
+      expect(spanList.map((sp) => sp.text)).toStrictEqual(["The fox ", "jumped"]);
+      expect(spanList.getSelectedText()).toStrictEqual("jumped");
+      expect(spanList.selection).toStrictEqual(new Selection(new Coord(1, 0), new Coord(1, 6)));
+
+      // The fox jumped -> The fox **jumped**.
+      spanList.updateSelection({
+        from: { spanIndex: 0, offset: 4 },
+        to: { spanIndex: 1, offset: 4 },
+      });
+
+      expect(spanList.getSelectedText()).toStrictEqual("fox jump");
+      spanList.addMarkInsideSpanAt(0, ItalicMark, 4, 8);
+      expect(spanList.map((sp) => sp.text)).toStrictEqual(["The ", "fox ", "jumped"]);
+      expect(spanList.selection.from).toStrictEqual(new Coord(1, 0));
+      expect(spanList.selection.to).toStrictEqual(new Coord(2, 4));
+      expect(spanList.getSelectedText()).toStrictEqual("fox jump");
+
+      spanList.addMarkInsideSpanAt(2, ItalicMark, 0, 4);
+      expect(spanList.map((sp) => sp.text)).toStrictEqual(["The ", "fox ", "jump", "ed"]);
+      expect(spanList.selection.from).toStrictEqual(new Coord(1, 0));
+      expect(spanList.selection.to).toStrictEqual(new Coord(2, 4));
+    });
   });
 });

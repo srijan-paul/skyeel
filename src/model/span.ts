@@ -161,7 +161,6 @@ export class SpanList {
       return firstSpan.text.substring(from.offset, to.offset);
     }
 
-
     let text = firstSpan.text.slice(from.offset);
     for (let i = from.spanIndex + 1; i < to.spanIndex; ++i) {
       text += this.spans[i].text;
@@ -206,7 +205,7 @@ export class SpanList {
   }
 
   /**
-   * Insert texr inside a span at a specific index.
+   * Insert text inside a span at a specific index.
    * @param spanIndex Index of the span to update
    * @param text The text to add.
    * @param from start index of the substring to replace
@@ -244,6 +243,9 @@ export class SpanList {
   private updateSelectionForSpanSplit(index: number, children: Span[]) {
     if (children.length === 1 && children[0].text.length === this.spans[index].text.length) return;
 
+    // TODO: this function works very well (according to my test suite), but is very messy.
+    // This needs to be refactored.
+
     const sel = this.currentSelection;
     const delta = children.length - 1;
     if (sel.from.spanIndex > index) {
@@ -254,7 +256,9 @@ export class SpanList {
     }
 
     if (sel.from.spanIndex < index) {
-      if (sel.to.spanIndex < index) return;
+      if (sel.to.spanIndex < index) {
+        return;
+      }
 
       if (sel.to.spanIndex > index) {
         // The span that was split is inside the selected span range.
@@ -295,13 +299,20 @@ export class SpanList {
       return;
     }
 
-    // selection is entirely within the span that is being split.
-    // => sel.from.spanIndex == sel.to.spanIndex == index
-    // notImplemented();
+    // from.spanIndex == spanIndex.
 
-    let cumTextLen = 0;
     let fromAdjusted = false,
       toAdjusted = false;
+
+    if (sel.to.spanIndex > index) {
+      sel.to.spanIndex += delta;
+      toAdjusted = true;
+    }
+
+    // selection is entirely within the span that is being split.
+    // => sel.from.spanIndex == sel.to.spanIndex == index
+
+    let cumTextLen = 0;
     for (let i = 0; i < children.length; ++i) {
       const textlen = children[i].text.length;
       if (!fromAdjusted && cumTextLen + textlen > sel.from.offset) {
