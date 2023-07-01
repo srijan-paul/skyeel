@@ -319,24 +319,52 @@ describe("SpanList", () => {
       expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 7], [0, 7]));
     });
 
-    it("works when selection is a range", () => {
+    it("works when both selection and insertion are ranges", () => {
       // selection is *after* insertion range
       const spList = new SpanList();
       spList.insertAtEnd(new Span(doc, "The fox jumped over the lazy dog"));
       spList.updateSelection(Selection.fromCoords([0, 8], [0, 14]));
-      expect(spList.getSelectedText()).toStrictEqual("jumped")
+      expect(spList.getSelectedText()).toStrictEqual("jumped");
       spList.insertTextInSpanAt(0, "wild cat ", 4, 8);
       expect(spList.at(0).text).toStrictEqual("The wild cat jumped over the lazy dog");
       expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 13], [0, 19]));
-      expect(spList.getSelectedText()).toStrictEqual("jumped")
+      expect(spList.getSelectedText()).toStrictEqual("jumped");
 
       // selection is to the right of insertion range, but has an overlap.
       spList.updateSelection(Selection.fromCoords([0, 9], [0, 19]));
-      expect(spList.getSelectedText()).toStrictEqual("cat jumped")
+      expect(spList.getSelectedText()).toStrictEqual("cat jumped");
       spList.insertTextInSpanAt(0, "fuzzy fox ", 4, 13);
       expect(spList.at(0).text).toStrictEqual("The fuzzy fox jumped over the lazy dog");
-      expect(spList.getSelectedText()).toStrictEqual("jumped")
+      expect(spList.getSelectedText()).toStrictEqual("jumped");
       expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 14], [0, 20]));
+
+      // insertion is to the right of selection, but has overlap.
+      spList.updateSelection(Selection.fromCoords([0, 4], [0, 13]));
+      expect(spList.getSelectedText()).toStrictEqual("fuzzy fox");
+      spList.insertTextInSpanAt(0, "cat leaped", 10, 20);
+      expect(spList.getSelectedText()).toStrictEqual("fuzzy ");
+      spList.updateSelection(Selection.fromCoords([0, 4], [0, 10]));
+
+      // insertion is inside selection
+      spList.updateSelection(Selection.fromCoords([0, 4], [0, 20]));
+      expect(spList.getSelectedText()).toStrictEqual("fuzzy cat leaped");
+      spList.insertTextInSpanAt(0, "fox", 10, 13);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 4], [0, 20]));
+      expect(spList.getSelectedText()).toStrictEqual("fuzzy fox leaped");
+
+      // insertion surrounds selection
+      spList.updateSelection(Selection.fromCoords([0, 10], [0, 13]));
+      expect(spList.getSelectedText()).toStrictEqual("fox");
+      spList.insertTextInSpanAt(0, "mad dog jumped", 4, 20);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 4], [0, 4]));
+      expect(spList.getSelectedText()).toStrictEqual("");
+
+      // insertion and selection ranges are equal
+      spList.updateSelection(Selection.fromCoords([0, 8], [0, 11]));
+      expect(spList.getSelectedText()).toStrictEqual("dog");
+      spList.insertTextInSpanAt(0, "cat", 8, 11);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 8], [0, 8]));
+      expect(spList.getSelectedText()).toStrictEqual("");
     });
   });
 });

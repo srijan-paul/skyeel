@@ -241,8 +241,27 @@ export class SpanList {
           return;
         }
 
-        default: {
-          notImplemented();
+        case RelativePos.rightOverlap: {
+          sel.to.offset = insertFrom;
+          return;
+        }
+
+        case RelativePos.equal:
+        case RelativePos.surround: {
+          sel.from.offset = insertFrom;
+          sel.to.offset = insertFrom;
+          return;
+        }
+
+        case RelativePos.inside: {
+          sel.to.offset += delta;
+          return;
+        }
+
+        case RelativePos.right: {
+          // There is no reason to alter anything when
+          // the insertion range is completely to the right.
+          return;
         }
       }
     }
