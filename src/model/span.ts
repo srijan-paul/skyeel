@@ -1,6 +1,12 @@
 import type Mark from "./mark";
 import type Doc from "./document";
-import { replaceArrayRange, type Pair, getRelativePosOfRanges, RelativePos, notImplemented } from "../utils";
+import {
+  replaceArrayRange,
+  type Pair,
+  getRelativePosOfRanges,
+  RelativePos,
+  notImplemented,
+} from "../utils";
 import { Emitter, Event as DocEvent } from "./event-emitter";
 import Selection, { Coord } from "./selection";
 
@@ -145,6 +151,15 @@ export class SpanList {
     const sel = this.currentSelection;
     sel.from.spanIndex = src.from.spanIndex;
     sel.to.spanIndex = src.to.spanIndex;
+
+    if (sel.from.spanIndex < 0 || sel.from.spanIndex > this.spans.length) {
+      throw new Error("selection beginning is out of bounds");
+    }
+
+    if (sel.to.spanIndex < 0 || sel.to.spanIndex > this.spans.length) {
+      throw new Error("selection end is out of bounds");
+    }
+
     sel.from.offset = src.from.offset;
     sel.to.offset = src.to.offset;
   }
@@ -153,7 +168,10 @@ export class SpanList {
    * @returns the text at current selection.
    */
   public getSelectedText(): string {
+    if (this.spans.length === 0) return "";
+
     const { from, to } = this.selection;
+
     const firstSpan = this.spans[from.spanIndex];
     const lastSpan = this.spans[to.spanIndex];
 
@@ -266,14 +284,7 @@ export class SpanList {
       }
     }
 
-    if (spanIndex === from.spanIndex && insertFrom > from.offset && insertFrom < to.offset) {
-      sel.to.offset = insertFrom;
-    }
-
-    // TODO: fix this
-    if (spanIndex === to.spanIndex && insertTo > from.offset && insertTo < to.offset) {
-      sel.from.offset = insertTo + delta;
-    }
+    notImplemented();
   }
 
   /**
@@ -290,8 +301,14 @@ export class SpanList {
     this.emitter.emit(DocEvent.textChanged, span);
   }
 
+  /**
+   * @param spanIndex index of the span in which text has to be removed.
+   * @param from begin offset of text to remove.
+   * @param to end offset of text to remove (from + 1 by default).
+   */
   public removeTextInSpanAt(spanIndex: number, from: number, to?: number) {
     const span = this.spans[spanIndex];
+    this.adjustSelectionForTextInsertion(spanIndex, "", from, to ?? span.text.length);
     span.removeText(from, to);
     this.emitter.emit(DocEvent.textChanged, span);
   }
@@ -316,9 +333,8 @@ export class SpanList {
   private updateSelectionForSpanSplit(index: number, children: Span[]) {
     if (children.length === 1 && children[0].text.length === this.spans[index].text.length) return;
 
-    // TODO: this function works very well (according to my test suite), but is very messy.
+    // TODO: this function works very well (according to my test suite), but is messy.
     // This needs to be refactored.
-
     const sel = this.currentSelection;
     const delta = children.length - 1;
     if (sel.from.spanIndex > index) {
@@ -406,6 +422,78 @@ export class SpanList {
   }
 
   /**
+   * Adjust the current selection when spans are marked for removal.
+   * @param fromSpan index of the first span being deleted.
+   * @param toSpan index of the last span being deleted.
+   */
+  private adjustSelectionForSpanRemoval(fromSpan: number, toSpan: number) {
+    const { from, to } = this.currentSelection;
+    const delSpan = toSpan - fromSpan + 1;
+
+    if (delSpan === this.spans.length) {
+      // all spans were deleted
+      this.updateSelection(Selection.fromCoords([0, 0], [0, 0]));
+      return;
+    }
+
+    const pos = getRelativePosOfRanges(from.spanIndex, to.spanIndex, fromSpan, toSpan);
+
+    // index of the span that comes before the first span to be removed
+    const idxBeforeDeletedRange = fromSpan > 0 ? fromSpan - 1 : 0;
+    // index of the span that comes after the last span to be removed
+    const idxAfterDeletedRange = Math.min(this.spans.length - 1, toSpan + 1) - delSpan;
+
+    switch (pos) {
+      case RelativePos.left: {
+        // no changes needed when selection is on the left.
+        return;
+      }
+
+      case RelativePos.right: {
+        from.spanIndex -= delSpan;
+        to.spanIndex -= delSpan;
+        return;
+      }
+
+      case RelativePos.inside: {
+        from.spanIndex = idxAfterDeletedRange;
+        from.offset = 0;
+        to.spanIndex = idxAfterDeletedRange;
+        to.offset = 0;
+        return;
+      }
+
+      case RelativePos.surround: {
+        to.spanIndex -= delSpan;
+        return;
+      }
+
+      case RelativePos.leftOverlap: {
+        // [sssssss[dddss]ddddd]
+        to.spanIndex = idxBeforeDeletedRange;
+        to.offset = this.spans[idxBeforeDeletedRange].text.length;
+        return;
+      }
+
+      case RelativePos.rightOverlap: {
+        // [dddddd[ss]sssss]
+        from.spanIndex = idxAfterDeletedRange;
+        from.offset = 0;
+        to.spanIndex -= delSpan;
+        return;
+      }
+
+      case RelativePos.equal: {
+        from.spanIndex = idxAfterDeletedRange;
+        to.spanIndex = idxAfterDeletedRange;
+        from.offset = 0;
+        to.offset = 0;
+        return;
+      }
+    }
+  }
+
+  /**
    * Take the span at `index`, and add `mark` to a sub-string of this mark between `[from, to)`.
    * Doing so might cause the span to be split into multiple spans.
    */
@@ -440,12 +528,27 @@ export class SpanList {
     this.emitter.emit(DocEvent.spanReplaced, { removed, added: spans });
   }
 
+  /**
+   * @param index index in which the span has to be inserted
+   * @param span the new span to insert.
+   */
   public insertAt(index: number, span: Span) {
     const before = this.spans.slice(0, index);
     before.push(span);
     const after = this.spans.slice(index);
     this.spans = before.concat(after);
     this.emitter.emit(DocEvent.spanAdded, [span, index]);
+  }
+
+  /**
+   * Remove all spans in range `[from, to)`.
+   * `to` = `from + 1` by default.
+   */
+  public deleteBetween(from: number, to = from + 1) {
+    const before = this.spans.slice(0, from);
+    const after = this.spans.slice(to);
+    this.adjustSelectionForSpanRemoval(from, to - 1);
+    this.spans = before.concat(after);
   }
 
   /**

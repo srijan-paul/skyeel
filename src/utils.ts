@@ -7,13 +7,13 @@ export function replaceArrayRange<T>(xs: T[], from: number, to: number, ys: T[])
 }
 
 export const enum RelativePos {
-  left, // selection is to the left of a given span-range, no overlap.
-  leftOverlap, // selection is to the left, and has some overlap on the right side.
-  right, // selection is to the right of a given span-range.
-  rightOverlap, // selection is to the right, and has some overlap on the left side.
-  inside, // selection is inside a given span-range
-  surround, // the selection surrounds the span-range,
-  equal,
+  left, // one range is to the other's left  [----] (----)
+  leftOverlap, // one range is to the other's left, but has an overlap on the right end [----(--]---)
+  right, // one range is to the other's right (----) [----]
+  rightOverlap, // one range is to the other's right, but has overlap on the left end. (---[-)--]
+  inside, // one range is inside the other (---[----]---)
+  surround, // one range surrounds the other [---(---)---]
+  equal, // both ranges are equal [(---)]
 }
 
 /**
@@ -54,12 +54,16 @@ export function getRelativePosOfRanges(
   return RelativePos.right;
 }
 
-// TODO
+/**
+ * Dummy function for control flow situations that should never be reachable.
+ */
 export function impossible(): never {
   throw new Error("Impossible");
 }
 
-// TODO
+/**
+ * Dummy function to demarcate unimplemented features
+ */
 export function notImplemented(): never {
   throw new Error("Not implemented");
 }

@@ -367,4 +367,81 @@ describe("SpanList", () => {
       expect(spList.getSelectedText()).toStrictEqual("");
     });
   });
+
+  describe("SpanList#adjustSelectionForSpanDeletion", () => {
+    it("works when a multiple contiguous spans are removed", () => {
+      const spList = new SpanList();
+      toSpans("The quick brown fox jumped".split(" "), doc).forEach(
+        spList.insertAtEnd.bind(spList)
+      );
+
+      const reset = () => {
+        spList.deleteBetween(0, spList.length);
+        toSpans("The quick brown fox jumped".split(" "), doc).forEach(
+          spList.insertAtEnd.bind(spList)
+        );
+      };
+
+      spList.updateSelection(Selection.fromCoords([0, 0], [2, 5]));
+      expect(spList.getSelectedText()).toStrictEqual("Thequickbrown");
+
+      // 1. spans are removed to the right.
+      spList.deleteBetween(3, 5);
+      expect(spList.getSelectedText()).toStrictEqual("Thequickbrown");
+
+      reset();
+
+      // 2. spans are removed to the left
+      spList.updateSelection(Selection.fromCoords([3, 0], [4, 7]));
+      expect(spList.getSelectedText()).toStrictEqual("foxjumped");
+      spList.deleteBetween(0, 3);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 0], [1, 7]));
+      expect(spList.getSelectedText()).toStrictEqual("foxjumped");
+
+      reset();
+
+      // 3. spans are removed on the right, but have overlap
+      spList.updateSelection(Selection.fromCoords([0, 0], [2, 5]));
+      expect(spList.getSelectedText()).toStrictEqual("Thequickbrown");
+      spList.deleteBetween(2, 5);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 0], [1, 5]));
+      expect(spList.getSelectedText()).toStrictEqual("Thequick");
+
+      reset();
+
+      // 4. spans are removed on the left, but have overlap
+      spList.updateSelection(Selection.fromCoords([2, 0], [4, 7]));
+      expect(spList.getSelectedText()).toStrictEqual("brownfoxjumped");
+      spList.deleteBetween(0, 3);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 0], [1, 7]));
+      expect(spList.getSelectedText()).toStrictEqual("foxjumped");
+
+      reset();
+
+      // 5. selection is inside deleted spans
+      spList.updateSelection(Selection.fromCoords([2, 0], [2, 5]));
+      expect(spList.getSelectedText()).toStrictEqual("brown");
+      spList.deleteBetween(1, 4);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([1, 0], [1, 0]));
+      expect(spList.getSelectedText()).toStrictEqual("");
+
+      reset();
+
+      // 6. selection surrounds deleted spans.
+      spList.updateSelection(Selection.fromCoords([0, 0], [4, 6]));
+      expect(spList.getSelectedText()).toStrictEqual("Thequickbrownfoxjumped");
+      spList.deleteBetween(1, 4);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 0], [1, 6]));
+      expect(spList.getSelectedText()).toStrictEqual("Thejumped");
+
+      reset();
+
+      // 7. all spans are deleted.
+      spList.updateSelection(Selection.fromCoords([1, 0], [3, 4]));
+      expect(spList.getSelectedText()).toStrictEqual("quickbrownfox");
+      spList.deleteBetween(0, 5);
+      expect(spList.selection).toStrictEqual(Selection.fromCoords([0, 0], [0, 0]));
+      expect(spList.getSelectedText()).toStrictEqual("");
+    });
+  });
 });

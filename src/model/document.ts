@@ -13,12 +13,11 @@ export default class Doc {
    * [("The ", []), ("quick", [bold]), (" brown ", []), ("fox", [italic])]
    * ```
    */
-  spans = new SpanList;
+  public readonly spans = new SpanList();
   /**
    * subscribe to a document event.
    */
   public readonly on = this.spans.on;
-
 
   /**
    * Insert `text` in the current selection.
