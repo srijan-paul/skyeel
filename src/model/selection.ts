@@ -1,3 +1,6 @@
+import { RelativePos, getRelativePosOfRanges } from "../utils";
+export { RelativePos } from '../utils'
+
 /**
  * A definite location inside the document.
  * It comprises of a span and a zero-indexed offset inside the span.
@@ -9,6 +12,10 @@ export interface Coord {
   offset: number;
 }
 
+/**
+ * Represends a span inside a list of spans, and an offset into the text
+ * contained within the span.
+ */
 export class Coord implements Coord {
   constructor(public spanIndex: number, public offset: number) {}
 }
@@ -16,16 +23,6 @@ export class Coord implements Coord {
 export default interface Selection {
   from: Coord;
   to: Coord;
-}
-
-export const enum RelativePos {
-  left, // selection is to the left of a given span-range, no overlap.
-  leftOverlap, // selection is to the left, and has some overlap on the right side.
-  right, // selection is to the right of a given span-range.
-  rightOverlap, // selection is to the right, and has some overlap on the left side.
-  inside, // selection is inside a given span-range
-  surround, // the selection surrounds the span-range,
-  equal,
 }
 
 /**
@@ -50,31 +47,30 @@ export default class Selection implements Selection {
     firstSpanIndex: number,
     lastSpanIndex: number
   ): RelativePos {
-    const fromIndex = sel.from.spanIndex;
-    const toIndex = sel.to.spanIndex;
+    return getRelativePosOfRanges(
+      sel.from.spanIndex,
+      sel.to.spanIndex,
+      firstSpanIndex,
+      lastSpanIndex
+    );
+  }
 
-    if (fromIndex === firstSpanIndex && toIndex === lastSpanIndex) {
-      return RelativePos.equal;
-    }
+  /**
+   * @param sel A selection object
+   * @returns `true` if the selection is a caret, false if it's a range.
+   */
+  public static isCaret(sel: Selection) {
+    return sel.from.spanIndex === sel.to.spanIndex && sel.from.offset === sel.to.offset;
+  }
 
-    if (fromIndex < firstSpanIndex) {
-      if (toIndex < lastSpanIndex) {
-        return firstSpanIndex <= toIndex ? RelativePos.leftOverlap : RelativePos.left;
-      }
-      // the selection surrounds the span range.
-      return RelativePos.surround;
-    }
-
-    // fromIndex > beginSpanIndex
-
-    if (toIndex <= lastSpanIndex) return RelativePos.inside;
-
-    // fromIndex > beginSpanIndex && toIndex > lastSpanIndex.
-    if (fromIndex <= lastSpanIndex) {
-      return RelativePos.rightOverlap;
-    }
-
-    return RelativePos.right;
+  /**
+   * construct a selection object from ([fromIndex, fromOffset], [toIndex, toOffset]).
+   */
+  public static fromCoords(
+    [idx1, offset1]: [number, number],
+    [idx2, offset2]: [number, number]
+  ): Selection {
+    return new Selection(new Coord(idx1, offset1), new Coord(idx2, offset2));
   }
 
   constructor(

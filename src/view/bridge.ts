@@ -222,7 +222,9 @@ export default class Bridge {
     const domSel = this.selectionManager.selectionInDOM;
     const docSelection = this.selectionManager.selection;
     if (!(domSel && docSelection)) impossible();
+    this.document.spans.updateSelection(docSelection);
     this.document.insertTextAt(docSelection, text);
+    this.syncSelection();
   }
 
   /**

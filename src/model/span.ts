@@ -1,8 +1,8 @@
 import type Mark from "./mark";
 import type Doc from "./document";
-import { replaceArrayRange, type Pair, notImplemented } from "../utils";
+import { replaceArrayRange, type Pair, getRelativePosOfRanges, RelativePos, notImplemented } from "../utils";
 import { Emitter, Event as DocEvent } from "./event-emitter";
-import Selection, { Coord, RelativePos } from "./selection";
+import Selection, { Coord } from "./selection";
 
 /**
  * A `Span` represents a contiguous array of text in the document.
@@ -187,7 +187,7 @@ export class SpanList {
    * @returns The `index` of `span`.
    */
   public indexOf(span: Span) {
-    return this.spans.indexOf(span as Span);
+    return this.spans.indexOf(span);
   }
 
   /**
@@ -205,6 +205,59 @@ export class SpanList {
   }
 
   /**
+   * Update the current selection when text is inserted into a span.
+   */
+  private adjustSelectionForTextInsertion(
+    spanIndex: number,
+    text: string,
+    insertFrom: number,
+    insertTo: number
+  ) {
+    const sel = this.currentSelection;
+    const delta = text.length - (insertTo - insertFrom);
+
+    const { from, to } = sel;
+
+    if (Selection.isCaret(sel)) {
+      if (spanIndex === from.spanIndex && insertFrom <= from.offset) {
+        from.offset += delta;
+        to.offset += delta;
+      }
+      return;
+    }
+
+    if (spanIndex === from.spanIndex && spanIndex === to.spanIndex) {
+      const pos = getRelativePosOfRanges(insertFrom, insertTo, sel.from.offset, sel.to.offset);
+      switch (pos) {
+        case RelativePos.left: {
+          from.offset += delta;
+          to.offset += delta;
+          return;
+        }
+
+        case RelativePos.leftOverlap: {
+          sel.from.offset = insertTo + delta;
+          sel.to.offset += delta;
+          return;
+        }
+
+        default: {
+          notImplemented();
+        }
+      }
+    }
+
+    if (spanIndex === from.spanIndex && insertFrom > from.offset && insertFrom < to.offset) {
+      sel.to.offset = insertFrom;
+    }
+
+    // TODO: fix this
+    if (spanIndex === to.spanIndex && insertTo > from.offset && insertTo < to.offset) {
+      sel.from.offset = insertTo + delta;
+    }
+  }
+
+  /**
    * Insert text inside a span at a specific index.
    * @param spanIndex Index of the span to update
    * @param text The text to add.
@@ -214,6 +267,7 @@ export class SpanList {
   public insertTextInSpanAt(spanIndex: number, text: string, from: number, to = from) {
     const span = this.spans[spanIndex];
     span.insertTextAt(text, from, to);
+    this.adjustSelectionForTextInsertion(spanIndex, text, from, to);
     this.emitter.emit(DocEvent.textChanged, span);
   }
 
