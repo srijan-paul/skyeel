@@ -52,7 +52,7 @@ export class Emitter implements Emitter {
    * Emit `event` with `payload`.
    */
   public emit<TEvent extends Event>(event: TEvent, payload: EventPayloadMap[TEvent]) {
-    let listeners = this.listenersOfEvent.get(event);
+    const listeners = this.listenersOfEvent.get(event);
     if (!listeners) return;
     for (const lis of listeners) {
       lis(payload);

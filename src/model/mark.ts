@@ -9,7 +9,7 @@ export default class Mark {
     // "bold", "italic", "color", "undeline", etc.
     readonly type: string,
     // "Render" the mark by mutating a DOM Node to appear different.
-    readonly render: (node: Node) => Node = _.identity,
+    readonly render: (node: Node) => Node = _.identity.bind(_),
     // Any attributes like { color: "#ff0000" }.
     // It's `undefined` for simple marks like "bold".
     readonly attrs?: Record<string, any>

@@ -1,6 +1,6 @@
 import Mark from "./mark";
-import Selection, { Coord } from "./selection";
-import Span, { SpanList } from "./span";
+import Selection from "./selection";
+import { SpanList } from "./span";
 
 /**
  * Represents the state of the text as a linear list of spans.

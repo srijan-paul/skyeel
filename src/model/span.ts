@@ -1,12 +1,6 @@
 import type Mark from "./mark";
 import type Doc from "./document";
-import {
-  replaceArrayRange,
-  type Pair,
-  getRelativePosOfRanges,
-  RelativePos,
-  notImplemented,
-} from "../utils";
+import { replaceArrayRange, type Pair, getRelativePosOfRanges, RelativePos } from "../utils";
 import { Emitter, Event as DocEvent } from "./event-emitter";
 import Selection, { Coord } from "./selection";
 

@@ -70,21 +70,29 @@ class SelectionManager {
       );
     }
 
+    if (!(sel.anchorNode && sel.focusNode)) {
+      impossible();
+    }
+
     if (dir === SelectionDir.leftToRight) {
-      startNode = sel.anchorNode!;
-      endNode = sel.focusNode!;
-      startOffset = sel.anchorOffset!;
-      endOffset = sel.focusOffset!;
+      startNode = sel.anchorNode;
+      endNode = sel.focusNode;
+      startOffset = sel.anchorOffset;
+      endOffset = sel.focusOffset;
     } else {
-      startNode = sel.focusNode!;
-      endNode = sel.anchorNode!;
-      startOffset = sel.focusOffset!;
-      endOffset = sel.anchorOffset!;
+      startNode = sel.focusNode;
+      endNode = sel.anchorNode;
+      startOffset = sel.focusOffset;
+      endOffset = sel.anchorOffset;
     }
 
     if (sel.anchorNode === this.rootElement) {
-      startNode = this.rootElement.firstChild!;
-      endNode = this.rootElement.lastChild!;
+      if (!(this.rootElement.firstChild && this.rootElement.lastChild)) { 
+        impossible();
+      }
+
+      startNode = this.rootElement.firstChild;
+      endNode = this.rootElement.lastChild;
       startOffset = 0;
       endOffset = endNode.textContent?.length ?? endOffset;
     }
