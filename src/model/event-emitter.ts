@@ -22,7 +22,7 @@ export interface EventPayloadMap {
   [Event.textChanged]: Span;
   [Event.markAdded]: [number, number];
   [Event.spanReplaced]: ReplaceSpanPayload;
-  [Event.spanRemoved]: Span;
+  [Event.spanRemoved]: [number, number];
   [Event.spanAdded]: [Span, number];
 }
 

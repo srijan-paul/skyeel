@@ -564,6 +564,12 @@ export class SpanList {
   public deleteBetween(from: number, to = from + 1) {
     const before = this.spans.slice(0, from);
     const after = this.spans.slice(to);
+
+    this.emitter.emit(DocEvent.spanReplaced, {
+      removed: this.spans.slice(from, to),
+      added: [],
+    });
+
     this.adjustSelectionForSpanRemoval(from, to - 1);
     this.spans = before.concat(after);
   }

@@ -37,7 +37,7 @@ export default class Doc {
       );
 
       this.spans.removeTextInSpanAt(toIndex, 0, to.offset);
-      this.spans.deleteBetween(fromIndex + 1, toIndex - 1);
+      this.spans.deleteBetween(fromIndex + 1, toIndex);
       return;
     }
 
