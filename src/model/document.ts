@@ -29,13 +29,15 @@ export default class Doc {
       const fromIndex = from.spanIndex;
       const toIndex = to.spanIndex;
 
-      this.spans.removeTextInSpanAt(fromIndex, from.offset);
+      this.spans.insertTextInSpanAt(
+        fromIndex,
+        text,
+        from.offset,
+        this.spans.at(fromIndex).text.length
+      );
+
       this.spans.removeTextInSpanAt(toIndex, 0, to.offset);
-      if (toIndex === fromIndex + 1) {
-        this.spans.insertAt(toIndex, new Span(this, text));
-      }
-      // TODO: support insertion when 3+ spans are selected.
-      // this.spans.replaceSpansBetween(fromIndex + 1, toIndex, [new Span(this, text)]);
+      this.spans.deleteBetween(fromIndex + 1, toIndex - 1);
       return;
     }
 

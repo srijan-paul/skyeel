@@ -248,6 +248,7 @@ export default class Bridge {
     if (!(sel && range)) return;
     range.setStart(fromNode, from.offset);
     range.setEnd(toNode, to.offset);
+    console.log(range);
     sel.removeAllRanges();
     sel.addRange(range);
   }

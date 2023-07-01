@@ -284,7 +284,24 @@ export class SpanList {
       }
     }
 
-    notImplemented();
+    if (spanIndex === from.spanIndex) {
+      if (insertFrom <= from.offset) {
+        from.offset = insertTo + delta;
+        if (from.offset === this.spans[from.spanIndex].text.length) {
+          from.offset = 0;
+          from.spanIndex += 1;
+        }
+      }
+      return;
+    }
+
+    if (spanIndex === to.spanIndex) {
+      if (insertTo <= to.offset) {
+        to.offset += delta;
+      } else {
+        to.offset = insertFrom;
+      }
+    }
   }
 
   /**
