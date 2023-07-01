@@ -87,7 +87,7 @@ class SelectionManager {
     }
 
     if (sel.anchorNode === this.rootElement) {
-      if (!(this.rootElement.firstChild && this.rootElement.lastChild)) { 
+      if (!(this.rootElement.firstChild && this.rootElement.lastChild)) {
         impossible();
       }
 

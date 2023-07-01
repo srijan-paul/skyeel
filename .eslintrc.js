@@ -6,7 +6,7 @@ module.exports = {
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: './tsconfig.eslint.json',
+    project: "./tsconfig.eslint.json",
     tsconfigRootDir: __dirname,
   },
   plugins: ["@typescript-eslint"],
@@ -14,5 +14,5 @@ module.exports = {
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
-  }
+  },
 };

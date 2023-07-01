@@ -1,5 +1,5 @@
 import { RelativePos, getRelativePosOfRanges } from "../utils";
-export { RelativePos } from '../utils'
+export { RelativePos } from "../utils";
 
 /**
  * A definite location inside the document.
