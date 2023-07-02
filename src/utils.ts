@@ -1,14 +1,15 @@
-// Replace all elements of `xs` in the range [from, to) with `ys`.
-
-import _ from "lodash";
-
-// and return the resulting array.
+/**
+ * Replace all elements of `xs`  in range `[from, to)` with `ys`.
+ */
 export function replaceArrayRange<T>(xs: T[], from: number, to: number, ys: T[]): T[] {
   const before = xs.slice(0, from);
   const after = xs.slice(to, xs.length);
   return before.concat(ys, after);
 }
 
+/**
+ * Position of two numeric ranges relative to each other.
+ */
 export const enum RelativePos {
   left, // one range is to the other's left  [----] (----)
   leftOverlap, // one range is to the other's left, but has an overlap on the right end [----(--]---)
@@ -20,7 +21,6 @@ export const enum RelativePos {
 }
 
 /**
- *
  * @param rangeAStart Beginning of the first range
  * @param rangeAEnd End of the first range (inclusive)
  * @param rangeBStart Beginning of the second range.

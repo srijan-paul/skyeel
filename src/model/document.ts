@@ -1,5 +1,4 @@
 import { cloneDeep } from "lodash";
-import { notImplemented } from "../utils";
 import Mark from "./mark";
 import Selection from "./selection";
 import { SpanList } from "./span";
