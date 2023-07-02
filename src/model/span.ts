@@ -307,8 +307,9 @@ export class SpanList {
    */
   public insertTextInSpanAt(spanIndex: number, text: string, from: number, to = from) {
     const span = this.spans[spanIndex];
-    span.insertTextAt(text, from, to);
+    console.log(span.text.length)
     this.adjustSelectionForTextInsertion(spanIndex, text, from, to);
+    span.insertTextAt(text, from, to);
     this.emitter.emit(DocEvent.textChanged, span);
   }
 

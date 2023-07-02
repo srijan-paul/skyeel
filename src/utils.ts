@@ -1,4 +1,7 @@
 // Replace all elements of `xs` in the range [from, to) with `ys`.
+
+import _ from "lodash";
+
 // and return the resulting array.
 export function replaceArrayRange<T>(xs: T[], from: number, to: number, ys: T[]): T[] {
   const before = xs.slice(0, from);

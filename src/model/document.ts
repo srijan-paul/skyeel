@@ -1,3 +1,5 @@
+import { cloneDeep } from "lodash";
+import { notImplemented } from "../utils";
 import Mark from "./mark";
 import Selection from "./selection";
 import { SpanList } from "./span";
@@ -18,6 +20,13 @@ export default class Doc {
    * subscribe to a document event.
    */
   public readonly on = this.spans.on;
+
+  /**
+   * update the document's selection.
+   */
+  public setSelection(sel: Selection) {
+    this.spans.updateSelection(sel);
+  }
 
   /**
    * Insert `text` in the current selection.
@@ -42,6 +51,38 @@ export default class Doc {
     }
 
     this.spans.insertTextInSpanAt(from.spanIndex, text, from.offset, to.offset);
+  }
+
+  /**
+   * Delete content to the caret's left.
+   * If the selection is a range instead, then perform a simple delete.
+   */
+  public deleteContentBackwards() {
+    const sel = this.spans.selection;
+
+    if (Selection.isCaret(sel)) {
+      // when deleting backwards in a caret, the character under the caret is removed.
+      let { spanIndex, offset } = sel.from;
+
+      if (offset === 0) {
+        if (spanIndex === 0) {
+          // Caret is at the beginning of the document, nothing to delete.
+          return;
+        }
+
+        // Place the caret at the ending of the previous span.
+        spanIndex--;
+        offset = this.spans.at(spanIndex).text.length;
+        sel.from.spanIndex = spanIndex;
+        sel.from.offset = offset;
+        sel.to = cloneDeep(sel.from);
+      }
+
+      this.spans.removeTextInSpanAt(spanIndex, offset - 1, offset);
+      return;
+    }
+
+    this.insertTextAt(sel, "");
   }
 
   /**

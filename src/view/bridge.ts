@@ -87,7 +87,7 @@ class SelectionManager {
     }
 
     if (sel.anchorNode === this.rootElement) {
-      if (!(this.rootElement.firstChild && this.rootElement.lastChild)) { 
+      if (!(this.rootElement.firstChild && this.rootElement.lastChild)) {
         impossible();
       }
 
@@ -225,7 +225,7 @@ export default class Bridge {
     this.syncSelection();
   }
 
-  insertTextAtCurrentSelection(text: string) {
+  public insertTextAtCurrentSelection(text: string) {
     const domSel = this.selectionManager.selectionInDOM;
     const docSelection = this.selectionManager.selection;
     if (!(domSel && docSelection)) impossible();
@@ -258,6 +258,17 @@ export default class Bridge {
     range.setEnd(toNode, to.offset);
     sel.removeAllRanges();
     sel.addRange(range);
+  }
+
+  /**
+   * backpsace behavior
+   */
+  public deleteBackward() {
+    const sel = this.selectionManager.selection;
+    if (!sel) impossible();
+    this.document.setSelection(sel);
+    this.document.deleteContentBackwards();
+    this.syncSelection();
   }
 
   /**

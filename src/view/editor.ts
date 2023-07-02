@@ -95,11 +95,12 @@ export default class Editor {
     // TODO: handle each of these cases: https://rawgit.com/w3c/input-events/v1/index.html#interface-InputEvent-Attributes (OOF!)
     if (event.inputType === "insertText" && typeof data === "string") {
       this.insertTextAtSelection(data);
-      event.preventDefault();
+    } else if (event.inputType === "deleteContentBackward") {
+      this.bridge.deleteBackward();
     } else {
       console.error(event.inputType, "is not supported yet.");
-      event.preventDefault();
     }
+    event.preventDefault();
   }
 
   private insertTextAtSelection(text: string) {
